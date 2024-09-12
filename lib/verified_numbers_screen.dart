@@ -4,6 +4,8 @@ import 'drawer_menu.dart';
 import 'phone_verification_screen.dart'; // Import the PhoneVerificationScreen
 
 class VerifiedNumbersScreen extends StatefulWidget {
+  const VerifiedNumbersScreen({super.key});
+
   @override
   _VerifiedNumbersScreenState createState() => _VerifiedNumbersScreenState();
 }
@@ -45,7 +47,7 @@ class _VerifiedNumbersScreenState extends State<VerifiedNumbersScreen> {
       await apiService.deleteVerifiedNumber(id);
       fetchVerifiedNumbers(); // Refresh the list after deletion
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Phone number deleted successfully')));
+          const SnackBar(content: Text('Phone number deleted successfully')));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error deleting phone number: $e')));
@@ -56,40 +58,42 @@ class _VerifiedNumbersScreenState extends State<VerifiedNumbersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Verified Numbers',
+        title: const Text('Verified Numbers',
             style: TextStyle(fontSize: 22.0, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
-      drawer: DrawerMenu(),
+      drawer: const DrawerMenu(),
       body: SafeArea(
         child: isLoading
-            ? Center(
+            ? const Center(
                 child: CircularProgressIndicator(),
               )
             : Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: verifiedNumbers.isEmpty
-                    ? Center(child: Text('No verified numbers found'))
+                    ? const Center(child: Text('No verified numbers found'))
                     : ListView.builder(
                         itemCount: verifiedNumbers.length,
                         itemBuilder: (context, index) {
                           final number = verifiedNumbers[index];
                           return Card(
                             elevation: 2,
-                            margin: EdgeInsets.symmetric(vertical: 8.0),
+                            margin: const EdgeInsets.symmetric(vertical: 8.0),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12.0),
                             ),
                             child: ListTile(
-                              leading: Icon(Icons.phone, color: Colors.green),
+                              leading:
+                                  const Icon(Icons.phone, color: Colors.green),
                               title: Text(
                                 number['phone_number'],
-                                style: TextStyle(
+                                style: const TextStyle(
                                     fontSize: 18.0,
                                     fontWeight: FontWeight.w600),
                               ),
                               trailing: IconButton(
-                                icon: Icon(Icons.delete, color: Colors.red),
+                                icon:
+                                    const Icon(Icons.delete, color: Colors.red),
                                 onPressed: () {
                                   deleteNumber(number['id']);
                                 },
@@ -104,11 +108,11 @@ class _VerifiedNumbersScreenState extends State<VerifiedNumbersScreen> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => PhoneVerificationScreen()),
+            MaterialPageRoute(builder: (context) => const PhoneVerificationScreen()),
           ).then((_) => fetchVerifiedNumbers()); // Refresh numbers after adding
         },
-        child: Icon(Icons.add),
         backgroundColor: Colors.blueAccent,
+        child: const Icon(Icons.add),
       ),
     );
   }

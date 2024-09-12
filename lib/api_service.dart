@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path/path.dart' as path; // For manipulating file paths
+import 'package:uuid/uuid.dart'; // For generating a unique identifier
 
 class ApiService {
-  final String baseUrl = 'https://e062-202-134-174-145.ngrok-free.app';
-  final _storage = FlutterSecureStorage(); // Secure storage for device_id
+  final String baseUrl = 'https://48b4-202-134-174-111.ngrok-free.app';
+  final _storage = const FlutterSecureStorage(); // Secure storage for device_id
 
   // Method to get or generate a device_id
   Future<String> _getDeviceId() async {
@@ -15,6 +18,57 @@ class ApiService {
       await _storage.write(key: 'device_id', value: deviceId);
     }
     return deviceId;
+  }
+
+  // Method to upload a voice file and get the file URL
+  Future<String> uploadVoiceFile(File voiceFile) async {
+    // Get the original file extension
+    String fileExtension = path.extension(voiceFile.path);
+
+    // Create a unique filename by appending a UUID or timestamp
+    String uniqueFileName = 'voice_${Uuid().v4()}$fileExtension';
+    var request =
+        http.MultipartRequest('POST', Uri.parse('$baseUrl/upload_voice'));
+    // Add the file to the request with the unique filename
+    request.files.add(await http.MultipartFile.fromPath('file', voiceFile.path,
+        filename: uniqueFileName // Assign unique filename
+        ));
+    var response = await request.send();
+
+    if (response.statusCode == 200) {
+      final responseBody = await response.stream.bytesToString();
+      final data = jsonDecode(responseBody);
+      return data['file_url']; // Return the file URL
+    } else {
+      throw Exception('Failed to upload voice file');
+    }
+  }
+
+  // Schedule a voice call with a recorded voice URL
+  Future<Map<String, dynamic>> scheduleVoiceCall(String to, String voiceUrl,
+      String time, String frequency, String? dayOfWeek, String? name) async {
+    final deviceId = await _getDeviceId();
+    final response = await http.post(
+      Uri.parse('$baseUrl/schedule_call'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8'
+      },
+      body: jsonEncode({
+        'to': to,
+        'voice_url': voiceUrl,
+        'time': time,
+        'frequency': frequency,
+        'day_of_week': dayOfWeek,
+        'device_id': deviceId,
+        'name': name,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to schedule voice reminder: ${response.body}');
+    }
   }
 
   // Method to send a verification code to a phone number
@@ -63,7 +117,7 @@ class ApiService {
 
   // Method to schedule a one-time or recurring call (daily or weekly)
   Future<Map<String, dynamic>> scheduleCall(String to, String message,
-      String time, String frequency, String? dayOfWeek) async {
+      String time, String frequency, String? dayOfWeek, String? name) async {
     final deviceId = await _getDeviceId(); // Get device_id
     final response = await http.post(
       Uri.parse('$baseUrl/schedule_call'),
@@ -119,6 +173,7 @@ class ApiService {
         await http.get(Uri.parse('$baseUrl/reminders?device_id=$deviceId'));
 
     if (response.statusCode == 200) {
+      print(jsonDecode(response.body));
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to fetch reminders: ${response.body}');

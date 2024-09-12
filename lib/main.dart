@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'new_reminder_screen.dart';
-import 'phone_verification_screen.dart';
 import 'reminders_screen.dart';
-import 'verified_numbers_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 void main() {
-  runApp(VoiceReminderApp());
+  runApp(const VoiceReminderApp());
 }
 
 class VoiceReminderApp extends StatelessWidget {
+  const VoiceReminderApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -28,7 +27,7 @@ class VoiceReminderApp extends StatelessWidget {
             fontWeight: FontWeight.w500,
             color: Colors.white,
           ),
-          iconTheme: IconThemeData(color: Colors.white),
+          iconTheme: const IconThemeData(color: Colors.white),
         ),
         buttonTheme: ButtonThemeData(
           buttonColor: Colors.teal,
@@ -48,7 +47,8 @@ class VoiceReminderApp extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12.0),
             ),
-            padding: EdgeInsets.symmetric(vertical: 16.0, horizontal: 32.0),
+            padding:
+                const EdgeInsets.symmetric(vertical: 16.0, horizontal: 32.0),
             elevation: 3,
           ),
         ),
@@ -56,12 +56,12 @@ class VoiceReminderApp extends StatelessWidget {
           filled: true,
           fillColor: Colors.grey[200],
           contentPadding:
-              EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
+              const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
             borderSide: BorderSide.none,
           ),
-          labelStyle: TextStyle(color: Colors.blueGrey),
+          labelStyle: const TextStyle(color: Colors.blueGrey),
         ),
         cardTheme: CardTheme(
           color: Colors.white,
@@ -70,10 +70,10 @@ class VoiceReminderApp extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.0),
           ),
-          margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+          margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         ),
       ),
-      home: RemindersScreen(),
+      home: const RemindersScreen(),
     );
   }
 }

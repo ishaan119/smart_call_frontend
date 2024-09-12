@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'api_service.dart';
 import 'drawer_menu.dart';
+import 'new_reminder_screen.dart';
 
 class PhoneVerificationScreen extends StatefulWidget {
+  const PhoneVerificationScreen({super.key});
+
   @override
   _PhoneVerificationScreenState createState() =>
       _PhoneVerificationScreenState();
@@ -51,13 +54,15 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
         _isLoading = false;
       });
       if (response['status'] == 'verified') {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Phone number verified successfully')));
-        Navigator.pushReplacementNamed(
-            context, '/new_reminder'); // Navigate to new reminder screen
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Phone number verified successfully')));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const NewReminderScreen()),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to verify phone number')));
+            const SnackBar(content: Text('Failed to verify phone number')));
       }
     } catch (e) {
       setState(() {
@@ -75,10 +80,10 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Phone Verification',
+        title: const Text('Phone Verification',
             style: TextStyle(fontSize: 22.0, fontWeight: FontWeight.bold)),
       ),
-      drawer: DrawerMenu(), // Ensure this is correctly implemented
+      drawer: const DrawerMenu(), // Ensure this is correctly implemented
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -88,7 +93,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Verify Your Phone Number',
                     style: TextStyle(
                       fontSize: 24.0,
@@ -97,7 +102,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: 24.0),
+                  const SizedBox(height: 24.0),
                   Text(
                     'Please enter your phone number with the country code (e.g., +91 for India).',
                     style: TextStyle(
@@ -105,23 +110,23 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                       color: Colors.grey[700],
                     ),
                   ),
-                  SizedBox(height: 16.0),
+                  const SizedBox(height: 16.0),
                   TextFormField(
                     controller: _phoneController,
                     decoration: InputDecoration(
                       labelText: 'Phone Number',
-                      labelStyle: TextStyle(color: Colors.blueGrey),
+                      labelStyle: const TextStyle(color: Colors.blueGrey),
                       filled: true,
                       fillColor: Colors.grey[200],
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.0),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: EdgeInsets.symmetric(
+                      contentPadding: const EdgeInsets.symmetric(
                           vertical: 20.0, horizontal: 16.0),
                     ),
                     keyboardType: TextInputType.phone,
-                    style: TextStyle(fontSize: 16.0),
+                    style: const TextStyle(fontSize: 16.0),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter a phone number';
@@ -134,27 +139,27 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                     enabled: !_codeSent, // Disable when code is sent
                   ),
                   if (_codeSent) ...[
-                    SizedBox(height: 16.0),
+                    const SizedBox(height: 16.0),
                     TextFormField(
                       controller: _codeController,
                       focusNode: _codeControllerFocusNode, // Set the focus node
                       decoration: InputDecoration(
                         labelText: 'Verification Code',
-                        labelStyle: TextStyle(color: Colors.blueGrey),
+                        labelStyle: const TextStyle(color: Colors.blueGrey),
                         filled: true,
                         fillColor: Colors.grey[200],
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12.0),
                           borderSide: BorderSide.none,
                         ),
-                        contentPadding: EdgeInsets.symmetric(
+                        contentPadding: const EdgeInsets.symmetric(
                             vertical: 20.0, horizontal: 16.0),
                       ),
                       keyboardType: TextInputType.number,
-                      style: TextStyle(fontSize: 16.0),
+                      style: const TextStyle(fontSize: 16.0),
                     ),
                   ],
-                  SizedBox(height: 32.0),
+                  const SizedBox(height: 32.0),
                   Center(
                     child: ElevatedButton(
                       onPressed: _isLoading
@@ -165,18 +170,18 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12.0),
                         ),
-                        padding: EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                             vertical: 16.0, horizontal: 64.0),
                         elevation: 3, // Adds a subtle shadow
                       ),
                       child: _isLoading
-                          ? CircularProgressIndicator(
+                          ? const CircularProgressIndicator(
                               valueColor:
                                   AlwaysStoppedAnimation<Color>(Colors.white),
                             )
                           : Text(
                               _codeSent ? 'Verify Code' : 'Send Code',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 18.0,
                                 fontWeight: FontWeight.bold,

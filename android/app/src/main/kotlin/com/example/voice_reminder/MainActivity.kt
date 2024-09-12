@@ -1,4 +1,4 @@
-package com.example.voice_reminder
+package com.docninja.smartcall
 
 import io.flutter.embedding.android.FlutterActivity
 

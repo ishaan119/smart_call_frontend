@@ -5,13 +5,15 @@ import 'verified_numbers_screen.dart'; // Ensure this points to the correct file
 import 'reminders_screen.dart';
 
 class DrawerMenu extends StatelessWidget {
+  const DrawerMenu({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          DrawerHeader(
+          const DrawerHeader(
             decoration: BoxDecoration(
               color: Colors.teal,
               gradient: LinearGradient(
@@ -24,8 +26,8 @@ class DrawerMenu extends StatelessWidget {
               children: [
                 CircleAvatar(
                   backgroundColor: Colors.white,
-                  child: Icon(Icons.person, size: 40.0, color: Colors.teal),
                   radius: 30.0,
+                  child: Icon(Icons.person, size: 40.0, color: Colors.teal),
                 ),
                 SizedBox(width: 16.0),
                 Text(
@@ -51,7 +53,7 @@ class DrawerMenu extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => NewReminderScreen()),
+                          builder: (context) => const NewReminderScreen()),
                     );
                   },
                 ),
@@ -63,7 +65,7 @@ class DrawerMenu extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => PhoneVerificationScreen()),
+                          builder: (context) => const PhoneVerificationScreen()),
                     );
                   },
                 ),
@@ -75,7 +77,7 @@ class DrawerMenu extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => RemindersScreen()),
+                          builder: (context) => const RemindersScreen()),
                     );
                   },
                 ),
@@ -87,7 +89,7 @@ class DrawerMenu extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => VerifiedNumbersScreen()),
+                          builder: (context) => const VerifiedNumbersScreen()),
                     );
                   },
                 ),
@@ -108,7 +110,7 @@ class DrawerMenu extends StatelessWidget {
       leading: Icon(icon, color: Colors.teal),
       title: Text(
         text,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 16.0,
           fontWeight: FontWeight.w600,
           color: Colors.black87,
