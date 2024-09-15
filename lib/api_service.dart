@@ -5,8 +5,26 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as path; // For manipulating file paths
 import 'package:uuid/uuid.dart'; // For generating a unique identifier
 
+// Define the VerifiedNumber class here
+class VerifiedNumber {
+  final int id;
+  final String phoneNumber;
+  final String? name;
+
+  VerifiedNumber({required this.id, required this.phoneNumber, this.name});
+
+  // Factory method to create a VerifiedNumber from JSON
+  factory VerifiedNumber.fromJson(Map<String, dynamic> json) {
+    return VerifiedNumber(
+      id: json['id'],
+      phoneNumber: json['phone_number'],
+      name: json['name'],
+    );
+  }
+}
+
 class ApiService {
-  final String baseUrl = 'https://48b4-202-134-174-111.ngrok-free.app';
+  final String baseUrl = 'https://b6e7-202-134-148-245.ngrok-free.app';
   final _storage = const FlutterSecureStorage(); // Secure storage for device_id
 
   // Method to get or generate a device_id
@@ -23,15 +41,15 @@ class ApiService {
   // Method to upload a voice file and get the file URL
   Future<String> uploadVoiceFile(File voiceFile) async {
     // Get the original file extension
-    String fileExtension = path.extension(voiceFile.path);
+    String fileName = path.basename(voiceFile.path);
 
-    // Create a unique filename by appending a UUID or timestamp
-    String uniqueFileName = 'voice_${Uuid().v4()}$fileExtension';
+    // // Create a unique filename by appending a UUID or timestamp
+    // String uniqueFileName = 'voice_${Uuid().v4()}$fileExtension';
     var request =
         http.MultipartRequest('POST', Uri.parse('$baseUrl/upload_voice'));
     // Add the file to the request with the unique filename
     request.files.add(await http.MultipartFile.fromPath('file', voiceFile.path,
-        filename: uniqueFileName // Assign unique filename
+        filename: fileName // Assign unique filename
         ));
     var response = await request.send();
 
@@ -94,7 +112,7 @@ class ApiService {
 
   // Method to check if the verification code is correct
   Future<Map<String, dynamic>> checkVerificationCode(
-      String phoneNumber, String code) async {
+      String phoneNumber, String code, String? name) async {
     final deviceId = await _getDeviceId(); // Get device_id
     final response = await http.post(
       Uri.parse('$baseUrl/check_verification_code'),
@@ -105,6 +123,7 @@ class ApiService {
         'phone_number': phoneNumber,
         'code': code,
         'device_id': deviceId, // Send device_id along with the request
+        'name': name,
       }),
     );
 
@@ -131,6 +150,7 @@ class ApiService {
         'frequency': frequency,
         'day_of_week': dayOfWeek,
         'device_id': deviceId, // Include device_id in the request
+        'name': name,
       }),
     );
 
@@ -190,18 +210,17 @@ class ApiService {
     }
   }
 
-  // Method to fetch all verified numbers associated with the device_id
-  Future<List<Map<String, dynamic>>> getVerifiedNumbers() async {
+  // Updated Method to fetch all verified numbers associated with the device_id
+  Future<List<VerifiedNumber>> getVerifiedNumbers() async {
     final deviceId = await _getDeviceId(); // Get device_id
     final response = await http
         .get(Uri.parse('$baseUrl/get_verified_numbers?device_id=$deviceId'));
 
     if (response.statusCode == 200) {
       List<dynamic> body = jsonDecode(response.body);
-      return body
-          .map((item) =>
-              {'id': item['id'], 'phone_number': item['phone_number']})
-          .toList();
+      List<VerifiedNumber> numbers =
+          body.map((item) => VerifiedNumber.fromJson(item)).toList();
+      return numbers;
     } else {
       throw Exception('Failed to load verified numbers: ${response.body}');
     }
@@ -219,7 +238,8 @@ class ApiService {
   }
 
   // Method to add a verified number, associated with the device_id
-  Future<Map<String, dynamic>> addVerifiedNumber(String phoneNumber) async {
+  Future<Map<String, dynamic>> addVerifiedNumber(
+      String phoneNumber, String? name) async {
     final deviceId = await _getDeviceId(); // Get device_id
     final response = await http.post(
       Uri.parse('$baseUrl/add_verified_number'),
@@ -228,6 +248,7 @@ class ApiService {
       },
       body: jsonEncode({
         'phone_number': phoneNumber,
+        'name': name,
         'device_id': deviceId, // Associate the number with the device
       }),
     );
@@ -236,6 +257,54 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to add verified number: ${response.body}');
+    }
+  }
+
+  // Method to update a verified number's name
+  Future<void> updateVerifiedNumber(int id, String name) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/update_verified_number/$id'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({
+        'name': name,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update verified number: ${response.body}');
+    }
+  }
+
+  Future<void> rescheduleReminder(int id, String newTime) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/reschedule_reminder/$id'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({
+        'time': newTime,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to reschedule reminder: ${response.body}');
+    }
+  }
+
+  // Method to update a reminder
+  Future<void> updateReminder(int id, Map<String, dynamic> updatedData) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/reminders/$id'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(updatedData),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update reminder: ${response.body}');
     }
   }
 }

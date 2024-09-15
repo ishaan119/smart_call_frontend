@@ -15,16 +15,20 @@ class VoiceReminderApp extends StatelessWidget {
       title: 'Smart Call',
       theme: ThemeData(
         primarySwatch: Colors.teal,
-        hintColor: Colors.amber,
+        scaffoldBackgroundColor: Colors.grey[100],
+        hintColor: Colors.grey,
         textTheme: GoogleFonts.robotoTextTheme(
-          Theme.of(context).textTheme,
+          Theme.of(context).textTheme.apply(
+                bodyColor: Colors.grey[800],
+                displayColor: Colors.grey[800],
+              ),
         ),
         appBarTheme: AppBarTheme(
-          color: Colors.teal,
-          elevation: 0,
+          color: Colors.teal[600],
+          elevation: 2,
           titleTextStyle: GoogleFonts.roboto(
-            fontSize: 20.0,
-            fontWeight: FontWeight.w500,
+            fontSize: 22.0,
+            fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
           iconTheme: const IconThemeData(color: Colors.white),
@@ -33,45 +37,45 @@ class VoiceReminderApp extends StatelessWidget {
           buttonColor: Colors.teal,
           textTheme: ButtonTextTheme.primary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.0),
+            borderRadius: BorderRadius.circular(8.0),
           ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             foregroundColor: Colors.white,
-            backgroundColor: Colors.teal,
+            backgroundColor: Colors.teal[600],
             textStyle: GoogleFonts.roboto(
               fontSize: 16.0,
               fontWeight: FontWeight.bold,
             ),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12.0),
+              borderRadius: BorderRadius.circular(8.0),
             ),
             padding:
                 const EdgeInsets.symmetric(vertical: 16.0, horizontal: 32.0),
-            elevation: 3,
+            elevation: 2,
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.grey[200],
+          fillColor: Colors.white,
           contentPadding:
-              const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
+              const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(8.0),
           ),
-          labelStyle: const TextStyle(color: Colors.blueGrey),
+          labelStyle: const TextStyle(color: Colors.grey),
         ),
         cardTheme: CardTheme(
           color: Colors.white,
-          shadowColor: Colors.black26,
-          elevation: 4,
+          shadowColor: Colors.black12,
+          elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.0),
           ),
           margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         ),
+        iconTheme: IconThemeData(color: Colors.teal[600]),
       ),
       home: const RemindersScreen(),
     );

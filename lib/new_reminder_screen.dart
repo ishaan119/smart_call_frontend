@@ -8,6 +8,9 @@ import 'api_service.dart';
 import 'reminders_screen.dart';
 import 'drawer_menu.dart';
 import 'phone_verification_screen.dart';
+import 'package:uuid/uuid.dart';
+
+// No need to redefine the VerifiedNumber class here since it's defined in api_service.dart
 
 class NewReminderScreen extends StatefulWidget {
   const NewReminderScreen({super.key});
@@ -18,17 +21,19 @@ class NewReminderScreen extends StatefulWidget {
 
 class _NewReminderScreenState extends State<NewReminderScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final TextEditingController _nameController =
-      TextEditingController(); // Controller for reminder name
+  final TextEditingController _reminderNameController = TextEditingController();
   TimeOfDay? _selectedTime;
   final ApiService apiService = ApiService();
-  String? _selectedPhoneNumber;
-  String _frequency = 'one-time'; // Default to one-time
+  VerifiedNumber? _selectedNumber;
+  String _frequency = 'one-time'; // Default to 'one-time'
   String? _selectedDayOfWeek;
-  List<String> _verifiedNumbers = [];
+  List<VerifiedNumber> _verifiedNumbers = [];
   bool _isLoading = true;
   bool _isVoiceMessage = true; // Default to voice message
   bool _isRecording = false;
+  bool _isSubmitting = false; // Flag to disable the button after first press
+
+  final List<String> _frequencyOptions = ['one-time', 'daily', 'weekly'];
 
   FlutterSoundRecorder? _audioRecorder;
   String? _recordedFilePath;
@@ -43,13 +48,15 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
 
   Future<void> fetchVerifiedNumbers() async {
     try {
-      List<Map<String, dynamic>> numbers =
-          await apiService.getVerifiedNumbers();
+      List<VerifiedNumber> numbers = await apiService.getVerifiedNumbers();
+
       setState(() {
-        _verifiedNumbers =
-            numbers.map((number) => number['phone_number'] as String).toList();
-        _selectedPhoneNumber =
-            _verifiedNumbers.isNotEmpty ? _verifiedNumbers[0] : null;
+        _verifiedNumbers = numbers;
+        // Update _selectedNumber if it's not in the new list
+        if (!_verifiedNumbers.contains(_selectedNumber)) {
+          _selectedNumber =
+              _verifiedNumbers.isNotEmpty ? _verifiedNumbers[0] : null;
+        }
         _isLoading = false;
       });
     } catch (e) {
@@ -75,8 +82,13 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
 
   Future<void> _startRecording() async {
     final directory = await getApplicationDocumentsDirectory();
-    final filePath = '${directory.path}/recorded_voice.aac';
-    await _audioRecorder!.startRecorder(toFile: filePath, codec: Codec.aacADTS);
+    // Generate a unique ID for the file
+    var uuid = Uuid();
+    String uniqueId = uuid.v4(); // Generates a random UUID
+    final filePath = '${directory.path}/recorded_voice_$uniqueId.wav';
+    // Use Codec.pcm16WAV for .wav or Codec.mp3 for .mp3
+    await _audioRecorder!
+        .startRecorder(toFile: filePath, codec: Codec.pcm16WAV);
     setState(() {
       _isRecording = true;
       _recordedFilePath = filePath;
@@ -90,7 +102,6 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
     });
   }
 
-  /// Method to show the time picker and select a time for the reminder
   Future<void> _pickTime() async {
     TimeOfDay? pickedTime = await showTimePicker(
       context: context,
@@ -105,15 +116,20 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
   }
 
   Future<void> addReminder() async {
-    if (_selectedPhoneNumber == null ||
+    if (_selectedNumber == null ||
         _selectedTime == null ||
-        _nameController.text.isEmpty) {
+        _reminderNameController.text.isEmpty ||
+        (_isVoiceMessage && _recordedFilePath == null) ||
+        (!_isVoiceMessage && _messageController.text.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('All fields including reminder name are required')),
+        const SnackBar(content: Text('Please fill in all required fields')),
       );
       return;
     }
+
+    setState(() {
+      _isSubmitting = true; // Disable the button
+    });
 
     String formattedTime = _formatTimeOfDay(_selectedTime!);
     String dateTime =
@@ -125,33 +141,36 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
         File recordedFile = File(_recordedFilePath!);
         String voiceUrl = await apiService.uploadVoiceFile(recordedFile);
         await apiService.scheduleVoiceCall(
-          _selectedPhoneNumber!,
+          _selectedNumber!.phoneNumber,
           voiceUrl,
           dateTime,
           _frequency,
           _selectedDayOfWeek,
-          _nameController.text, // Pass the reminder name
+          _reminderNameController.text,
         );
       } else {
         // Schedule the reminder with the text message
         await apiService.scheduleCall(
-          _selectedPhoneNumber!,
+          _selectedNumber!.phoneNumber,
           _messageController.text,
           dateTime,
           _frequency,
           _selectedDayOfWeek,
-          _nameController.text,
+          _reminderNameController.text,
         );
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reminder added')),
+        const SnackBar(content: Text('Reminder added successfully')),
       );
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const RemindersScreen()),
       );
     } catch (e) {
+      setState(() {
+        _isSubmitting = false; // Re-enable the button on error
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -159,190 +178,255 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('New Reminder',
-            style: TextStyle(fontSize: 22.0, fontWeight: FontWeight.bold)),
-      ),
-      drawer: const DrawerMenu(),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_verifiedNumbers.isEmpty)
-                        Center(
-                          child: Column(
-                            children: [
-                              const Text('No verified phone numbers available',
-                                  style: TextStyle(
-                                      fontSize: 16.0, color: Colors.red)),
-                              const SizedBox(height: 16.0),
-                              ElevatedButton(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            const PhoneVerificationScreen()),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blueAccent,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 16.0, horizontal: 64.0),
-                                  elevation: 3,
-                                ),
-                                child: const Text(
-                                  'Verify Phone Number',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18.0,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else ...[
-                        const Text('Select Phone Number',
-                            style: TextStyle(
-                                fontSize: 18.0, fontWeight: FontWeight.w600)),
-                        DropdownButton<String>(
-                          value: _selectedPhoneNumber,
-                          isExpanded: true,
-                          items: _verifiedNumbers.map((String number) {
-                            return DropdownMenuItem<String>(
-                              value: number,
-                              child: Text(number),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedPhoneNumber = newValue;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 16.0),
-                        TextField(
-                          controller:
-                              _nameController, // Input for reminder name
-                          decoration:
-                              const InputDecoration(labelText: 'Reminder Name'),
-                        ),
-                        const SizedBox(height: 16.0),
-                        const Text('Reminder Type',
-                            style: TextStyle(
-                                fontSize: 18.0, fontWeight: FontWeight.w600)),
-                        DropdownButton<String>(
-                          value: _frequency,
-                          isExpanded: true,
-                          items: <String>['one-time', 'daily', 'weekly']
-                              .map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _frequency = newValue!;
-                              _selectedDayOfWeek =
-                                  null; // Reset day of week for non-weekly reminders
-                            });
-                          },
-                        ),
-                        if (_frequency == 'weekly') ...[
-                          const SizedBox(height: 16.0),
-                          const Text('Day of the Week',
-                              style: TextStyle(
-                                  fontSize: 18.0, fontWeight: FontWeight.w600)),
-                          DropdownButton<String>(
-                            value: _selectedDayOfWeek,
-                            isExpanded: true,
-                            items: <String>[
-                              'mon',
-                              'tue',
-                              'wed',
-                              'thu',
-                              'fri',
-                              'sat',
-                              'sun'
-                            ].map((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value.toUpperCase()),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _selectedDayOfWeek = newValue;
-                              });
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 16.0),
-                        const Text('Message Type',
-                            style: TextStyle(
-                                fontSize: 18.0, fontWeight: FontWeight.w600)),
-                        SwitchListTile(
-                          title: const Text('Use Voice Message'),
-                          value: _isVoiceMessage,
-                          onChanged: (bool value) {
-                            setState(() {
-                              _isVoiceMessage = value;
-                            });
-                          },
-                        ),
-                        if (_isVoiceMessage)
-                          Column(
-                            children: [
-                              ElevatedButton(
-                                onPressed: _isRecording
-                                    ? _stopRecording
-                                    : _startRecording,
-                                child: Text(_isRecording
-                                    ? 'Stop Recording'
-                                    : 'Start Recording'),
-                              ),
-                              if (_recordedFilePath != null)
-                                const Text('Recording saved',
-                                    style: TextStyle(color: Colors.green)),
-                            ],
-                          )
-                        else
-                          TextField(
-                            controller: _messageController,
-                            decoration: const InputDecoration(
-                                labelText: 'Text Message'),
-                          ),
-                        const SizedBox(height: 16.0),
-                        ListTile(
-                          title: Text(_selectedTime == null
-                              ? 'Select Time'
-                              : _selectedTime!.format(context)),
-                          trailing: const Icon(Icons.access_time),
-                          onTap: _pickTime,
-                        ),
-                        const SizedBox(height: 16.0),
-                        ElevatedButton(
-                          onPressed: addReminder,
-                          child: const Text('Add Reminder'),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+  void dispose() {
+    _audioRecorder!.closeRecorder();
+    _audioRecorder = null;
+    _messageController.dispose();
+    _reminderNameController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildVerifiedNumbersDropdown() {
+    if (_verifiedNumbers.isEmpty) {
+      // No verified numbers available
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'No verified phone numbers available.',
+              style: TextStyle(fontSize: 18.0, color: Colors.redAccent),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16.0),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const PhoneVerificationScreen()),
+                ).then((_) => fetchVerifiedNumbers());
+              },
+              child: const Text('Verify Phone Number'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 16.0, horizontal: 32.0),
               ),
             ),
+          ],
+        ),
+      );
+    } else {
+      // Verified numbers are available
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Select Contact',
+            style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4.0),
+          DropdownButtonFormField<VerifiedNumber>(
+            value: _verifiedNumbers.contains(_selectedNumber)
+                ? _selectedNumber
+                : null,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+            ),
+            items: _verifiedNumbers.map((VerifiedNumber number) {
+              return DropdownMenuItem<VerifiedNumber>(
+                value: number,
+                child: Text(number.name ?? number.phoneNumber),
+              );
+            }).toList(),
+            onChanged: (VerifiedNumber? newValue) {
+              setState(() {
+                _selectedNumber = newValue;
+              });
+            },
+          ),
+        ],
+      );
+    }
+  }
+
+  Widget _buildReminderNameField() {
+    return TextFormField(
+      controller: _reminderNameController,
+      decoration: const InputDecoration(
+        labelText: 'Reminder Name',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.text_fields),
+      ),
+    );
+  }
+
+  Widget _buildFrequencyDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Reminder Frequency',
+          style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4.0),
+        DropdownButtonFormField<String>(
+          value: _frequency,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+          ),
+          items: _frequencyOptions.map((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(value[0].toUpperCase() + value.substring(1)),
+            );
+          }).toList(),
+          onChanged: (String? newValue) {
+            setState(() {
+              _frequency = newValue!;
+              _selectedDayOfWeek =
+                  null; // Reset day of week for non-weekly reminders
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDayOfWeekDropdown() {
+    if (_frequency != 'weekly') return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12.0),
+        const Text(
+          'Select Day of the Week',
+          style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 4.0),
+        DropdownButtonFormField<String>(
+          value: _selectedDayOfWeek,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+          ),
+          items: <String>[
+            'Monday',
+            'Tuesday',
+            'Wednesday',
+            'Thursday',
+            'Friday',
+            'Saturday',
+            'Sunday'
+          ].map((String value) {
+            return DropdownMenuItem<String>(
+              value: value.substring(0, 3).toLowerCase(),
+              child: Text(value),
+            );
+          }).toList(),
+          onChanged: (String? newValue) {
+            setState(() {
+              _selectedDayOfWeek = newValue;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMessageTypeSwitch() {
+    return SwitchListTile(
+      title: const Text(
+        'Use Voice Message',
+        style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w600),
+      ),
+      value: _isVoiceMessage,
+      onChanged: (bool value) {
+        setState(() {
+          _isVoiceMessage = value;
+        });
+      },
+      secondary: Icon(_isVoiceMessage ? Icons.mic : Icons.message),
+    );
+  }
+
+  Widget _buildVoiceMessageRecorder() {
+    if (!_isVoiceMessage) return const SizedBox.shrink();
+    return Column(
+      children: [
+        ElevatedButton.icon(
+          onPressed: _isRecording ? _stopRecording : _startRecording,
+          icon: Icon(_isRecording ? Icons.stop : Icons.mic),
+          label: Text(_isRecording ? 'Stop Recording' : 'Start Recording'),
+          style: ElevatedButton.styleFrom(
+            padding:
+                const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
+            minimumSize: const Size(double.infinity, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+          ),
+        ),
+        if (_recordedFilePath != null && !_isRecording)
+          const Padding(
+            padding: EdgeInsets.only(top: 8.0),
+            child: Text(
+              'Recording saved successfully!',
+              style: TextStyle(color: Colors.green),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTextMessageField() {
+    if (_isVoiceMessage) return const SizedBox.shrink();
+    return TextFormField(
+      controller: _messageController,
+      decoration: const InputDecoration(
+        labelText: 'Text Message',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.message),
+      ),
+      maxLines: 3,
+    );
+  }
+
+  Widget _buildTimePicker() {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.access_time),
+      title: Text(
+        _selectedTime == null
+            ? 'Select Time'
+            : 'Selected Time: ${_selectedTime!.format(context)}',
+        style: const TextStyle(fontSize: 16.0),
+      ),
+      onTap: _pickTime,
+    );
+  }
+
+  Widget _buildAddReminderButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed:
+            _isSubmitting ? null : addReminder, // Disable when submitting
+        child: _isSubmitting
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Text('Add Reminder'),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+        ),
+      ),
     );
   }
 
@@ -354,9 +438,46 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
   }
 
   @override
-  void dispose() {
-    _audioRecorder!.closeRecorder();
-    _audioRecorder = null;
-    super.dispose();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('New Reminder'),
+        centerTitle: true,
+      ),
+      drawer: const DrawerMenu(),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 24.0),
+                child: _verifiedNumbers.isEmpty
+                    ? _buildVerifiedNumbersDropdown()
+                    : Form(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildVerifiedNumbersDropdown(),
+                            const SizedBox(height: 16.0),
+                            _buildReminderNameField(),
+                            const SizedBox(height: 16.0),
+                            _buildFrequencyDropdown(),
+                            _buildDayOfWeekDropdown(),
+                            const SizedBox(height: 16.0),
+                            _buildMessageTypeSwitch(),
+                            if (_isVoiceMessage)
+                              _buildVoiceMessageRecorder()
+                            else
+                              _buildTextMessageField(),
+                            const SizedBox(height: 16.0),
+                            _buildTimePicker(),
+                            const SizedBox(height: 24.0),
+                            _buildAddReminderButton(),
+                          ],
+                        ),
+                      ),
+              ),
+            ),
+    );
   }
 }
