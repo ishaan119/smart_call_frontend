@@ -1,7 +1,11 @@
+// verified_numbers_screen.dart
+
 import 'package:flutter/material.dart';
 import 'api_service.dart';
 import 'drawer_menu.dart';
 import 'phone_verification_screen.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'models/verified_number.dart';
 
 class VerifiedNumbersScreen extends StatefulWidget {
   const VerifiedNumbersScreen({super.key});
@@ -32,8 +36,8 @@ class _VerifiedNumbersScreenState extends State<VerifiedNumbersScreen> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching verified numbers: $e')));
+      showCustomSnackBar('Error fetching verified numbers: $e',
+          color: Colors.red);
     }
   }
 
@@ -41,43 +45,11 @@ class _VerifiedNumbersScreenState extends State<VerifiedNumbersScreen> {
     try {
       await apiService.deleteVerifiedNumber(id);
       fetchVerifiedNumbers();
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Phone number deleted successfully')));
+      showCustomSnackBar('Phone number deleted successfully',
+          color: Colors.green);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting phone number: $e')));
+      showCustomSnackBar('Error deleting phone number: $e', color: Colors.red);
     }
-  }
-
-  void showDeleteConfirmationDialog(int id) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Delete Phone Number"),
-          content:
-              const Text("Are you sure you want to delete this phone number?"),
-          actions: [
-            TextButton(
-              child: const Text("Cancel"),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text(
-                "Delete",
-                style: TextStyle(color: Colors.red),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-                deleteNumber(id);
-              },
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void showEditNameDialog(int id, String? currentName) {
@@ -123,55 +95,81 @@ class _VerifiedNumbersScreenState extends State<VerifiedNumbersScreen> {
     try {
       await apiService.updateVerifiedNumber(id, name);
       fetchVerifiedNumbers();
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Name updated successfully')));
+      showCustomSnackBar('Name updated successfully', color: Colors.green);
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error updating name: $e')));
+      showCustomSnackBar('Error updating name: $e', color: Colors.red);
     }
   }
 
   Widget buildNumberCard(VerifiedNumber number) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
+    return Slidable(
+      key: ValueKey(number.id),
+      startActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        children: [
+          SlidableAction(
+            onPressed: (context) => showEditNameDialog(number.id, number.name),
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            icon: Icons.edit,
+            label: 'Edit',
+          ),
+        ],
       ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Colors.teal[600],
-          child: const Icon(Icons.phone, color: Colors.white),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        dismissible: DismissiblePane(onDismissed: () {
+          deleteNumber(number.id);
+        }),
+        children: [
+          SlidableAction(
+            onPressed: (context) => deleteNumber(number.id),
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+            icon: Icons.delete,
+            label: 'Delete',
+          ),
+        ],
+      ),
+      child: Card(
+        elevation: 2,
+        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.0),
         ),
-        title: Text(
-          number.name ?? number.phoneNumber,
-          style: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.w600),
-        ),
-        subtitle: number.name != null
-            ? Text(
-                number.phoneNumber,
-                style: const TextStyle(fontSize: 16.0, color: Colors.grey),
-              )
-            : null,
-        trailing: Wrap(
-          spacing: 12, // space between two icons
-          children: <Widget>[
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.blue),
-              onPressed: () {
-                showEditNameDialog(number.id, number.name);
-              },
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Colors.teal[600],
+            child: Text(
+              number.name != null && number.name!.isNotEmpty
+                  ? number.name![0].toUpperCase()
+                  : '#',
+              style: const TextStyle(color: Colors.white),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_forever, color: Colors.red),
-              onPressed: () {
-                showDeleteConfirmationDialog(number.id);
-              },
-            ),
-          ],
+          ),
+          title: Text(
+            number.name ?? number.phoneNumber,
+            style: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.w600),
+          ),
+          subtitle: number.name != null
+              ? Text(
+                  number.phoneNumber,
+                  style: const TextStyle(fontSize: 16.0, color: Colors.grey),
+                )
+              : null,
         ),
       ),
     );
+  }
+
+  void showCustomSnackBar(String message, {Color? color}) {
+    final snackBar = SnackBar(
+      content: Text(message),
+      backgroundColor: color ?? Colors.teal,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   @override
@@ -188,11 +186,37 @@ class _VerifiedNumbersScreenState extends State<VerifiedNumbersScreen> {
                 child: CircularProgressIndicator(),
               )
             : verifiedNumbers.isEmpty
-                ? const Center(
-                    child: Text(
-                    'No verified numbers found',
-                    style: TextStyle(fontSize: 18.0),
-                  ))
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.contact_phone,
+                          size: 80,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No verified numbers found',
+                          style: TextStyle(fontSize: 18.0),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.add),
+                          label: const Text('Verify Phone Number'),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const PhoneVerificationScreen(),
+                              ),
+                            ).then((_) => fetchVerifiedNumbers());
+                          },
+                        ),
+                      ],
+                    ),
+                  )
                 : ListView.builder(
                     itemCount: verifiedNumbers.length,
                     itemBuilder: (context, index) {
@@ -206,7 +230,8 @@ class _VerifiedNumbersScreenState extends State<VerifiedNumbersScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (context) => const PhoneVerificationScreen()),
+              builder: (context) => const PhoneVerificationScreen(),
+            ),
           ).then((_) => fetchVerifiedNumbers());
         },
         backgroundColor: Colors.teal[600],

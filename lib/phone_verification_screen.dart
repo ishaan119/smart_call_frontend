@@ -12,16 +12,21 @@ class PhoneVerificationScreen extends StatefulWidget {
 }
 
 class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
-  final ApiService apiService = ApiService(); // Initialize the ApiService
+  final ApiService apiService = ApiService();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _nameController =
-      TextEditingController(); // Controller for name
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
   bool _codeSent = false;
   bool _isLoading = false;
-  final _formKey = GlobalKey<FormState>(); // Form key for validation
-  final FocusNode _codeControllerFocusNode =
-      FocusNode(); // Focus node for code field
+  bool _isPhoneValid = false;
+  bool _isNameValid = false;
+  bool _isCodeValid = false;
+
+  final _formKey = GlobalKey<FormState>();
+  final FocusNode _codeControllerFocusNode = FocusNode();
+
+  // Regular expression for validating phone numbers with country code
+  final RegExp phoneNumberRegEx = RegExp(r'^\+\d{1,3}\d{4,14}(?:x.+)?$');
 
   void sendCode() async {
     if (_formKey.currentState!.validate()) {
@@ -34,8 +39,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
           _codeSent = true;
           _isLoading = false;
         });
-        FocusScope.of(context)
-            .requestFocus(_codeControllerFocusNode); // Focus on the code field
+        FocusScope.of(context).requestFocus(_codeControllerFocusNode);
       } catch (e) {
         setState(() {
           _isLoading = false;
@@ -66,7 +70,11 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
       if (response['status'] == 'verified') {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Phone number verified successfully')));
-        Navigator.of(context).pop(); // Go back to the previous screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const NewReminderScreen(),
+          ),
+        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Invalid verification code. Please try again.')));
@@ -89,56 +97,75 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
     super.dispose();
   }
 
+  void _validateInput() {
+    setState(() {
+      _isPhoneValid = _phoneController.text.isNotEmpty &&
+          phoneNumberRegEx.hasMatch(_phoneController
+              .text); // Use regular expression to validate phone number
+      _isNameValid = _nameController.text.isNotEmpty;
+      _isCodeValid = _codeController.text.isNotEmpty;
+    });
+  }
+
   Widget _buildPhoneInput() {
     return TextFormField(
       controller: _phoneController,
       decoration: InputDecoration(
-        labelText: 'Phone Number',
+        labelText: 'Recipient\'s Phone Number',
         prefixIcon: const Icon(Icons.phone),
+        errorText:
+            _isPhoneValid ? null : 'Phone number must include country code',
       ),
       keyboardType: TextInputType.phone,
       style: const TextStyle(fontSize: 16.0),
+      onChanged: (_) => _validateInput(),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'Please enter a phone number';
-        } else if (!RegExp(r'^\+\d{1,3}\d{4,14}(?:x.+)?$').hasMatch(value)) {
-          return 'Please enter a valid phone number with country code';
+          return 'Please enter the recipient\'s phone number';
+        } else if (!phoneNumberRegEx.hasMatch(value)) {
+          return 'Please enter a valid phone number with country code (e.g., +1234567890)';
         }
         return null;
       },
-      enabled: !_codeSent, // Disable when code is sent
+      enabled: !_codeSent,
     );
   }
 
   Widget _buildNameInput() {
     return TextFormField(
       controller: _nameController,
-      decoration: InputDecoration(
-        labelText: 'Name',
-        prefixIcon: const Icon(Icons.person),
+      decoration: const InputDecoration(
+        labelText: 'Recipient\'s Name',
+        prefixIcon: Icon(Icons.person),
       ),
       keyboardType: TextInputType.text,
       style: const TextStyle(fontSize: 16.0),
-      enabled: !_codeSent, // Disable when code is sent
+      onChanged: (_) => _validateInput(),
+      enabled: !_codeSent,
     );
   }
 
   Widget _buildCodeInput() {
     return TextFormField(
       controller: _codeController,
-      focusNode: _codeControllerFocusNode, // Set the focus node
-      decoration: InputDecoration(
+      focusNode: _codeControllerFocusNode,
+      decoration: const InputDecoration(
         labelText: 'Verification Code',
-        prefixIcon: const Icon(Icons.lock),
+        prefixIcon: Icon(Icons.lock),
       ),
       keyboardType: TextInputType.number,
       style: const TextStyle(fontSize: 16.0),
+      onChanged: (_) => _validateInput(),
     );
   }
 
   Widget _buildSendCodeButton() {
     return ElevatedButton(
-      onPressed: _isLoading ? null : sendCode,
+      onPressed:
+          (_isPhoneValid && _isNameValid) && !_isLoading ? sendCode : null,
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
+      ),
       child: _isLoading
           ? const SizedBox(
               width: 24,
@@ -147,16 +174,16 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             )
-          : const Text('Send Code'),
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16.0),
-      ),
+          : const Text('Send Verification Code'),
     );
   }
 
   Widget _buildVerifyCodeButton() {
     return ElevatedButton(
-      onPressed: _isLoading ? null : verifyCode,
+      onPressed: (_isCodeValid && !_isLoading) ? verifyCode : null,
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
+      ),
       child: _isLoading
           ? const SizedBox(
               width: 24,
@@ -166,9 +193,6 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
               ),
             )
           : const Text('Verify Code'),
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16.0),
-      ),
     );
   }
 
@@ -179,18 +203,18 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
         title: const Text('Verify Phone Number'),
         centerTitle: true,
       ),
-      drawer: const DrawerMenu(), // Ensure this is correctly implemented
+      drawer: const DrawerMenu(),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
           child: Form(
-            key: _formKey, // Attach the form key
+            key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
                   child: Text(
-                    'Verify a Phone Number',
+                    'Verify Reminder Recipient',
                     style: TextStyle(
                       fontSize: 24.0,
                       fontWeight: FontWeight.bold,
@@ -200,7 +224,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
                 ),
                 const SizedBox(height: 24.0),
                 Text(
-                  'Please enter the phone number you want to send reminders to, including the country code (e.g., +1 for USA).',
+                  'To send reminders, you need to verify the recipient’s phone number. Please enter the recipient’s phone number with the country code, along with their name. You can only send reminders to verified numbers.',
                   style: TextStyle(
                     fontSize: 16.0,
                     color: Colors.grey[700],

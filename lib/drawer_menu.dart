@@ -1,8 +1,11 @@
+// drawer_menu.dart
+
 import 'package:flutter/material.dart';
 import 'new_reminder_screen.dart';
 import 'phone_verification_screen.dart';
-import 'verified_numbers_screen.dart'; // Ensure this points to the correct file
+import 'verified_numbers_screen.dart';
 import 'reminders_screen.dart';
+import 'call_logs_screen.dart'; // Import the CallLogsScreen
 
 class DrawerMenu extends StatelessWidget {
   const DrawerMenu({super.key});
@@ -10,28 +13,36 @@ class DrawerMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: ListView(
+        padding: EdgeInsets.zero,
         children: <Widget>[
-          const DrawerHeader(
-            decoration: BoxDecoration(
-              color: Colors.teal,
+          DrawerHeader(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [Colors.teal, Colors.tealAccent],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
-            child: Row(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Adjusted the image display here
                 CircleAvatar(
-                  backgroundColor: Colors.white,
-                  radius: 30.0,
-                  child: Icon(Icons.person, size: 40.0, color: Colors.teal),
+                  radius: 45,
+                  backgroundColor: Colors.transparent,
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/app_icon.png',
+                      fit: BoxFit.cover,
+                      width: 90,
+                      height: 90,
+                    ),
+                  ),
                 ),
-                SizedBox(width: 16.0),
-                Text(
-                  'Menu',
+                const SizedBox(height: 10),
+                const Text(
+                  'Smart Call',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -41,60 +52,70 @@ class DrawerMenu extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: <Widget>[
-                _buildDrawerItem(
-                  icon: Icons.add,
-                  text: 'Add Reminder',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const NewReminderScreen()),
-                    );
-                  },
+          _buildDrawerItem(
+            icon: Icons.add_alarm,
+            text: 'Add Reminder',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NewReminderScreen(),
                 ),
-                _buildDrawerItem(
-                  icon: Icons.phone,
-                  text: 'Verify Phone',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const PhoneVerificationScreen()),
-                    );
-                  },
+              );
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.phone_android,
+            text: 'Verify Phone',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PhoneVerificationScreen(),
                 ),
-                _buildDrawerItem(
-                  icon: Icons.list,
-                  text: 'All Reminders',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const RemindersScreen()),
-                    );
-                  },
+              );
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.list_alt,
+            text: 'All Reminders',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const RemindersScreen(),
                 ),
-                _buildDrawerItem(
-                  icon: Icons.check_circle,
-                  text: 'Verified Numbers',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const VerifiedNumbersScreen()),
-                    );
-                  },
+              );
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.verified_user,
+            text: 'Verified Numbers',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const VerifiedNumbersScreen(),
                 ),
-              ],
-            ),
+              );
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.history, // Add the Call Logs menu item
+            text: 'Call Logs',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CallLogsScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -113,7 +134,6 @@ class DrawerMenu extends StatelessWidget {
         style: const TextStyle(
           fontSize: 16.0,
           fontWeight: FontWeight.w600,
-          color: Colors.black87,
         ),
       ),
       onTap: onTap,

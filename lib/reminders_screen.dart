@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:intl/intl.dart'; // Import for date and time formatting
+import 'package:intl/intl.dart';
 import 'api_service.dart';
 import 'drawer_menu.dart';
 import 'new_reminder_screen.dart';
+import 'phone_verification_screen.dart';
+import 'models/verified_number.dart';
 
 class RemindersScreen extends StatefulWidget {
   const RemindersScreen({super.key});
@@ -17,13 +19,37 @@ class _RemindersScreenState extends State<RemindersScreen> {
   List<dynamic> activeReminders = [];
   List<dynamic> expiredReminders = [];
   bool isLoading = true;
-
+  bool _hasVerifiedNumber = true; // Assume true initially
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
-    fetchReminders();
+    _checkVerifiedNumbers(); // First check for verified numbers
+  }
+
+  Future<void> _checkVerifiedNumbers() async {
+    try {
+      List<VerifiedNumber> verifiedNumbers =
+          await apiService.getVerifiedNumbers();
+      if (verifiedNumbers.isEmpty) {
+        // If no verified numbers, route to the PhoneVerificationScreen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const PhoneVerificationScreen()),
+        );
+      } else {
+        _hasVerifiedNumber = true;
+        fetchReminders();
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      showCustomSnackBar('Error checking verified numbers: $e',
+          color: Colors.red);
+    }
   }
 
   Future<void> fetchReminders() async {
@@ -65,9 +91,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching reminders: $e')),
-      );
+      showCustomSnackBar('Error fetching reminders: $e', color: Colors.red);
     }
   }
 
@@ -82,63 +106,161 @@ class _RemindersScreenState extends State<RemindersScreen> {
     try {
       await apiService.deleteReminder(id);
       fetchReminders();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reminder deleted successfully')),
-      );
+      showCustomSnackBar('Reminder deleted successfully', color: Colors.green);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting reminder: $e')),
-      );
+      showCustomSnackBar('Error deleting reminder: $e', color: Colors.red);
     }
   }
 
   void playVoiceMessage(String url) async {
     try {
       if (url.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Loading voice message...')),
-        );
+        showCustomSnackBar('Loading voice message...');
 
         await _audioPlayer.play(UrlSource(url));
 
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid voice message URL.')),
-        );
+        showCustomSnackBar('Invalid voice message URL.', color: Colors.red);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error playing voice message: $e')),
-      );
+      showCustomSnackBar('Error playing voice message: $e', color: Colors.red);
     }
   }
 
-  void showDeleteConfirmationDialog(int id) {
-    showDialog(
+  void rescheduleReminder(reminder) async {
+    DateTime? newDateTime = await showDateTimePicker();
+
+    if (newDateTime != null) {
+      try {
+        // Format datetime to match backend's expected format
+        String newTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(newDateTime);
+
+        // Check if the reminder is a voice reminder
+        bool isVoiceReminder =
+            reminder['voice_url'] != null && reminder['voice_url'].isNotEmpty;
+
+        if (isVoiceReminder) {
+          // Reschedule using scheduleVoiceCall
+          await apiService.scheduleVoiceCall(
+            reminder['to'],
+            reminder['voice_url'],
+            newTime,
+            reminder['frequency'],
+            reminder['day_of_week'],
+            reminder['name'],
+          );
+        } else {
+          // Reschedule using scheduleCall
+          await apiService.scheduleCall(
+            reminder['to'],
+            reminder['message'],
+            newTime,
+            reminder['frequency'],
+            reminder['day_of_week'],
+            reminder['name'],
+          );
+        }
+
+        // Delete the old reminder
+        await apiService.deleteReminder(reminder['id']);
+
+        fetchReminders();
+        showCustomSnackBar('Reminder rescheduled successfully',
+            color: Colors.green);
+      } catch (e) {
+        showCustomSnackBar('Error rescheduling reminder: $e',
+            color: Colors.red);
+      }
+    }
+  }
+
+  Future<DateTime?> showDateTimePicker() async {
+    DateTime? date = await showDatePicker(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Delete Reminder"),
-          content: const Text("Are you sure you want to delete this reminder?"),
-          actions: [
-            TextButton(
-              child: const Text("Cancel"),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text(
-                "Delete",
-                style: TextStyle(color: Colors.red),
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(), // Can't pick a date in the past
+      lastDate:
+          DateTime.now().add(const Duration(days: 365)), // Up to 1 year ahead
+    );
+
+    if (date == null) return null;
+
+    TimeOfDay? time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+
+    if (time == null) return null;
+
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  Widget buildReminderCard(reminder) {
+    final hasVoiceMessage =
+        reminder['voice_url'] != null && reminder['voice_url'].isNotEmpty;
+    final message = reminder['name'] ??
+        (hasVoiceMessage ? 'Voice Reminder' : reminder['message']);
+
+    // Get the formatted time string
+    String displayTime = formatReminderTime(
+      reminder['time'],
+      reminder['frequency'],
+      reminder['day_of_week'],
+    );
+
+    // Check if one-time reminder is in the past
+    bool isPast =
+        isOneTimeReminderInPast(reminder['time'], reminder['frequency']);
+
+    return Card(
+      elevation: 2,
+      color: isPast ? Colors.grey[300] : null,
+      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12.0),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: isPast ? Colors.grey : Colors.teal[600],
+          child: hasVoiceMessage
+              ? const Icon(Icons.mic, color: Colors.white)
+              : const Icon(Icons.text_snippet, color: Colors.white),
+        ),
+        title: Text(
+          message,
+          style: TextStyle(
+            fontSize: 18.0,
+            fontWeight: FontWeight.w600,
+            color: isPast ? Colors.grey : Colors.black,
+          ),
+        ),
+        subtitle: Text(
+          displayTime + (isPast ? ' (Expired)' : ''),
+          style: TextStyle(
+              fontSize: 14.0, color: isPast ? Colors.grey : Colors.grey[600]),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasVoiceMessage)
+              IconButton(
+                icon: const Icon(Icons.play_arrow, color: Colors.green),
+                onPressed: () => playVoiceMessage(reminder['voice_url']),
               ),
-              onPressed: () {
-                Navigator.of(context).pop();
-                deleteReminder(id);
-              },
+            IconButton(
+              icon: const Icon(Icons.delete_forever, color: Colors.red),
+              onPressed: () => deleteReminder(reminder['id']),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -187,156 +309,14 @@ class _RemindersScreenState extends State<RemindersScreen> {
     }
   }
 
-  // Updated rescheduleReminder function
-  void rescheduleReminder(reminder) async {
-    DateTime? newDateTime = await showDateTimePicker();
-
-    if (newDateTime != null) {
-      try {
-        // Format datetime to match backend's expected format
-        String newTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(newDateTime);
-
-        // Check if the reminder is a voice reminder
-        bool isVoiceReminder =
-            reminder['voice_url'] != null && reminder['voice_url'].isNotEmpty;
-
-        if (isVoiceReminder) {
-          // Reschedule using scheduleVoiceCall
-          await apiService.scheduleVoiceCall(
-            reminder['to'],
-            reminder['voice_url'],
-            newTime,
-            reminder['frequency'],
-            reminder['day_of_week'],
-            reminder['name'],
-          );
-        } else {
-          // Reschedule using scheduleCall
-          await apiService.scheduleCall(
-            reminder['to'],
-            reminder['message'],
-            newTime,
-            reminder['frequency'],
-            reminder['day_of_week'],
-            reminder['name'],
-          );
-        }
-
-        // Delete the old reminder
-        await apiService.deleteReminder(reminder['id']);
-
-        fetchReminders();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reminder rescheduled successfully')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error rescheduling reminder: $e')),
-        );
-      }
-    }
-  }
-
-  Future<DateTime?> showDateTimePicker() async {
-    // First, pick a date
-    DateTime? date = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(), // Can't pick a date in the past
-      lastDate:
-          DateTime.now().add(const Duration(days: 365)), // Up to 1 year ahead
+  void showCustomSnackBar(String message, {Color? color}) {
+    final snackBar = SnackBar(
+      content: Text(message),
+      backgroundColor: color ?? Colors.teal,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
     );
-
-    if (date == null) return null;
-
-    // Then, pick a time
-    TimeOfDay? time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-
-    if (time == null) return null;
-
-    // Combine date and time into a DateTime
-    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
-  }
-
-  @override
-  void dispose() {
-    _audioPlayer.dispose();
-    super.dispose();
-  }
-
-  Widget buildReminderCard(reminder) {
-    final hasVoiceMessage =
-        reminder['voice_url'] != null && reminder['voice_url'].isNotEmpty;
-    final message = reminder['name'] ??
-        (hasVoiceMessage ? 'Voice Reminder' : reminder['message']);
-
-    // Get the formatted time string
-    String displayTime = formatReminderTime(
-      reminder['time'],
-      reminder['frequency'],
-      reminder['day_of_week'],
-    );
-
-    // Check if one-time reminder is in the past
-    bool isPast =
-        isOneTimeReminderInPast(reminder['time'], reminder['frequency']);
-
-    return Card(
-      elevation: 2,
-      color: isPast ? Colors.grey[300] : null, // Gray out past reminders
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
-      ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: isPast ? Colors.grey : Colors.teal[600],
-          child: hasVoiceMessage
-              ? const Icon(Icons.mic, color: Colors.white)
-              : const Icon(Icons.text_snippet, color: Colors.white),
-        ),
-        title: Text(
-          message,
-          style: TextStyle(
-            fontSize: 18.0,
-            fontWeight: FontWeight.w600,
-            color: isPast ? Colors.grey : Colors.black,
-          ),
-        ),
-        subtitle: Text(
-          displayTime + (isPast ? ' (Expired)' : ''),
-          style: TextStyle(
-              fontSize: 14.0, color: isPast ? Colors.grey : Colors.grey[600]),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (hasVoiceMessage)
-              IconButton(
-                icon: Icon(Icons.play_circle_fill,
-                    color: isPast ? Colors.grey : Colors.teal),
-                iconSize: 30.0,
-                onPressed: isPast
-                    ? null
-                    : () => playVoiceMessage(reminder['voice_url']),
-              ),
-            if (isPast)
-              IconButton(
-                icon: const Icon(Icons.refresh, color: Colors.blue),
-                onPressed: () => rescheduleReminder(reminder),
-                tooltip: 'Reschedule',
-              ),
-            IconButton(
-              icon: const Icon(Icons.delete_forever, color: Colors.red),
-              onPressed: () => showDeleteConfirmationDialog(reminder['id']),
-            ),
-          ],
-        ),
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   @override
@@ -352,10 +332,34 @@ class _RemindersScreenState extends State<RemindersScreen> {
               child: CircularProgressIndicator(),
             )
           : (activeReminders.isEmpty && expiredReminders.isEmpty)
-              ? const Center(
-                  child: Text(
-                    'No reminders found',
-                    style: TextStyle(fontSize: 18.0),
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.notifications_off,
+                        size: 80,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No reminders found',
+                        style: TextStyle(fontSize: 18.0),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Reminder'),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NewReminderScreen(),
+                            ),
+                          ).then((_) => fetchReminders());
+                        },
+                      ),
+                    ],
                   ),
                 )
               : ListView(
@@ -373,7 +377,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       ),
                     ...activeReminders.map((reminder) {
                       return buildReminderCard(reminder);
-                    }).toList(),
+                    }),
                     if (expiredReminders.isNotEmpty)
                       const Padding(
                         padding: EdgeInsets.all(16.0),
@@ -387,14 +391,16 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       ),
                     ...expiredReminders.map((reminder) {
                       return buildReminderCard(reminder);
-                    }).toList(),
+                    }),
                   ],
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const NewReminderScreen()),
+            MaterialPageRoute(
+              builder: (context) => const NewReminderScreen(),
+            ),
           ).then((_) => fetchReminders());
         },
         backgroundColor: Colors.teal[600],
