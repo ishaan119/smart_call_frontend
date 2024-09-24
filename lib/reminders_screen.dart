@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:intl/intl.dart';
+import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'api_service.dart';
 import 'drawer_menu.dart';
 import 'new_reminder_screen.dart';
@@ -21,10 +25,13 @@ class _RemindersScreenState extends State<RemindersScreen> {
   bool isLoading = true;
   bool _hasVerifiedNumber = true; // Assume true initially
   final AudioPlayer _audioPlayer = AudioPlayer();
+  late String userTimezone;
 
   @override
   void initState() {
     super.initState();
+    tz_data.initializeTimeZones();
+    userTimezone = tz.local.name;
     _checkVerifiedNumbers(); // First check for verified numbers
   }
 
@@ -61,8 +68,20 @@ class _RemindersScreenState extends State<RemindersScreen> {
       expiredReminders = [];
 
       for (var reminder in response) {
-        bool isPast =
-            isOneTimeReminderInPast(reminder['time'], reminder['frequency']);
+        // The time from the backend should be in ISO 8601 format with timezone info
+        DateTime reminderTime = DateTime.parse(reminder['time']);
+
+        // Ensure the time is treated as UTC if it doesn't have timezone info
+        if (reminderTime.isUtc == false) {
+          reminderTime = DateTime.parse(reminder['time'] + 'Z');
+        }
+
+        // Update the reminder's time to be in local time for display purposes
+        reminder['localTime'] = reminderTime.toLocal();
+
+        // Check if one-time reminder is in the past
+        bool isPast = isOneTimeReminderInPast(
+            reminder['localTime'], reminder['frequency']);
         if (isPast) {
           expiredReminders.add(reminder);
         } else {
@@ -72,21 +91,26 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
       // Sort active reminders by time (earliest first)
       activeReminders.sort((a, b) {
-        DateTime aTime = DateTime.parse(a['time']);
-        DateTime bTime = DateTime.parse(b['time']);
+        DateTime aTime = a['localTime'];
+        DateTime bTime = b['localTime'];
         return aTime.compareTo(bTime);
       });
 
       // Sort expired reminders by time (most recent expired first)
       expiredReminders.sort((a, b) {
-        DateTime aTime = DateTime.parse(a['time']);
-        DateTime bTime = DateTime.parse(b['time']);
+        DateTime aTime = a['localTime'];
+        DateTime bTime = b['localTime'];
         return bTime.compareTo(aTime);
       });
 
       setState(() {
         isLoading = false;
       });
+
+      // If there are reminders, ask for push notification permission
+      if (activeReminders.isNotEmpty || expiredReminders.isNotEmpty) {
+        await _askNotificationPermission();
+      }
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -95,11 +119,28 @@ class _RemindersScreenState extends State<RemindersScreen> {
     }
   }
 
-  bool isOneTimeReminderInPast(String timeStr, String frequency) {
+  Future<void> _askNotificationPermission() async {
+    PermissionStatus permissionStatus = await Permission.notification.status;
+    if (!permissionStatus.isGranted) {
+      // If permission isn't granted, request it
+      PermissionStatus newStatus = await Permission.notification.request();
+      if (newStatus.isGranted) {
+        // You can initialize Firebase Messaging here
+        FirebaseMessaging messaging = FirebaseMessaging.instance;
+        await messaging.subscribeToTopic('reminders');
+        print('Push notification permission granted');
+      } else {
+        print('Push notification permission denied');
+      }
+    } else {
+      print('Push notification permission already granted');
+    }
+  }
+
+  bool isOneTimeReminderInPast(DateTime reminderLocalTime, String frequency) {
     if (frequency != 'one-time') return false;
-    DateTime dateTime = DateTime.parse(timeStr);
     DateTime now = DateTime.now();
-    return dateTime.isBefore(now);
+    return reminderLocalTime.isBefore(now);
   }
 
   void deleteReminder(int id) async {
@@ -133,34 +174,43 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
     if (newDateTime != null) {
       try {
-        // Format datetime to match backend's expected format
-        String newTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(newDateTime);
+        // Convert newDateTime to UTC before scheduling
+        String newTime =
+            DateFormat('yyyy-MM-dd HH:mm:ss').format(newDateTime.toUtc());
 
-        // Check if the reminder is a voice reminder
+        // Include the user's timezone
+        String timezone = userTimezone;
+
+        // Determine if the reminder is a voice reminder
         bool isVoiceReminder =
             reminder['voice_url'] != null && reminder['voice_url'].isNotEmpty;
 
+        // Prepare the data for the API request
+        Map<String, dynamic> data = {
+          'to': reminder['to'],
+          'time': newTime,
+          'frequency': reminder['frequency'],
+          'day_of_week': reminder['day_of_week'],
+          'name': reminder['name'],
+          'timezone': timezone,
+          'device_id': '1234567890', // Include device_id
+        };
+
         if (isVoiceReminder) {
-          // Reschedule using scheduleVoiceCall
-          await apiService.scheduleVoiceCall(
-            reminder['to'],
-            reminder['voice_url'],
-            newTime,
-            reminder['frequency'],
-            reminder['day_of_week'],
-            reminder['name'],
-          );
+          data['voice_url'] = reminder['voice_url'];
         } else {
-          // Reschedule using scheduleCall
-          await apiService.scheduleCall(
+          data['message'] = reminder['message'];
+        }
+
+        // Make the API call to schedule the reminder
+        await apiService.scheduleCall(
             reminder['to'],
-            reminder['message'],
             newTime,
             reminder['frequency'],
-            reminder['day_of_week'],
             reminder['name'],
-          );
-        }
+            reminder['timezone'],
+            reminder['device_id'],
+            reminder['message']);
 
         // Delete the old reminder
         await apiService.deleteReminder(reminder['id']);
@@ -210,14 +260,14 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
     // Get the formatted time string
     String displayTime = formatReminderTime(
-      reminder['time'],
+      reminder['localTime'],
       reminder['frequency'],
       reminder['day_of_week'],
     );
 
     // Check if one-time reminder is in the past
     bool isPast =
-        isOneTimeReminderInPast(reminder['time'], reminder['frequency']);
+        isOneTimeReminderInPast(reminder['localTime'], reminder['frequency']);
 
     return Card(
       elevation: 2,
@@ -266,8 +316,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
   // Helper function to format the reminder time
   String formatReminderTime(
-      String timeStr, String frequency, String? dayOfWeek) {
-    DateTime dateTime = DateTime.parse(timeStr);
+      DateTime dateTime, String frequency, String? dayOfWeek) {
     String formattedTime = DateFormat.jm().format(dateTime); // e.g., 9:00 PM
 
     if (frequency == 'daily') {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:smart_call_scheduler/models/verified_number.dart';
 import 'reminders_screen.dart';
 import 'phone_verification_screen.dart';
 import 'api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'models/verified_number.dart';
 
 void main() {
   runApp(const VoiceReminderApp());

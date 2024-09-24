@@ -10,8 +10,7 @@ import 'models/verified_number.dart'; // Assuming you have this model
 import 'models/call_log.dart'; // New model for CallLog
 
 class ApiService {
-  final String baseUrl =
-      'https://40af-2405-201-17-18d-71e8-9703-d94c-ddb1.ngrok-free.app';
+  final String baseUrl = 'https://a3ef-202-134-148-245.ngrok-free.app';
   final _storage = const FlutterSecureStorage(); // Secure storage for device_id
 
   // Singleton pattern (optional)
@@ -87,6 +86,7 @@ class ApiService {
     String frequency,
     String? dayOfWeek,
     String? name,
+    String timezone,
   ) async {
     final deviceId = await _getDeviceId();
     final response = await http.post(
@@ -102,6 +102,7 @@ class ApiService {
         'day_of_week': dayOfWeek,
         'device_id': deviceId,
         'name': name,
+        'timezone': timezone, // Send the timezone
       }),
     );
 
@@ -166,6 +167,7 @@ class ApiService {
     String frequency,
     String? dayOfWeek,
     String? name,
+    String timezone,
   ) async {
     final deviceId = await _getDeviceId();
     final response = await http.post(
@@ -181,6 +183,7 @@ class ApiService {
         'day_of_week': dayOfWeek,
         'device_id': deviceId,
         'name': name,
+        'timezone': timezone, // Send the timezone
       }),
     );
 
