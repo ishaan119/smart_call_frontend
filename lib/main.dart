@@ -1,9 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:smart_call_scheduler/models/verified_number.dart';
-import 'reminders_screen.dart';
-import 'phone_verification_screen.dart';
-import 'api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'reminders_screen.dart';
 
 void main() {
   runApp(const VoiceReminderApp());
@@ -20,14 +18,14 @@ class VoiceReminderApp extends StatelessWidget {
       darkTheme: _buildDarkTheme(),
       themeMode:
           ThemeMode.system, // Automatically switch based on system settings
-      home: const VerificationChecker(), // Start with a verification check
+      home: const RemindersScreen(), // Start directly with RemindersScreen
     );
   }
 
   ThemeData _buildLightTheme() {
     final base = ThemeData.light();
     return base.copyWith(
-      primaryColor: Colors.teal,
+      primaryColor: Color(0xFF1577FE), // Updated to match the base color
       scaffoldBackgroundColor: Colors.grey[100],
       hintColor: Colors.grey,
       textTheme: GoogleFonts.robotoTextTheme(base.textTheme).apply(
@@ -35,7 +33,7 @@ class VoiceReminderApp extends StatelessWidget {
         displayColor: Colors.grey[800],
       ),
       appBarTheme: AppBarTheme(
-        color: Colors.teal[600],
+        color: Color(0xFF1577FE), // Updated base color here too
         elevation: 2,
         titleTextStyle: GoogleFonts.roboto(
           fontSize: 22.0,
@@ -47,7 +45,7 @@ class VoiceReminderApp extends StatelessWidget {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
-          backgroundColor: Colors.teal[600],
+          backgroundColor: Color(0xFF1577FE), // Apply the base color to buttons
           textStyle: GoogleFonts.roboto(
             fontSize: 16.0,
             fontWeight: FontWeight.bold,
@@ -78,10 +76,10 @@ class VoiceReminderApp extends StatelessWidget {
         ),
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       ),
-      iconTheme: IconThemeData(color: Colors.teal[600]),
+      iconTheme: IconThemeData(color: Color(0xFF1577FE)), // Icon color
       colorScheme: base.colorScheme.copyWith(
-        primary: Colors.teal,
-        secondary: Colors.tealAccent,
+        primary: Color(0xFF1577FE), // Primary color scheme updated
+        secondary: Colors.blueAccent,
       ),
     );
   }
@@ -89,7 +87,8 @@ class VoiceReminderApp extends StatelessWidget {
   ThemeData _buildDarkTheme() {
     final base = ThemeData.dark();
     return base.copyWith(
-      primaryColor: Colors.teal[200],
+      primaryColor:
+          Color(0xFF1577FE), // Keep primary color consistent in dark mode
       scaffoldBackgroundColor: Colors.grey[900],
       hintColor: Colors.grey[400],
       textTheme: GoogleFonts.robotoTextTheme(base.textTheme).apply(
@@ -97,7 +96,7 @@ class VoiceReminderApp extends StatelessWidget {
         displayColor: Colors.grey[100],
       ),
       appBarTheme: AppBarTheme(
-        color: Colors.teal[800],
+        color: Color(0xFF1577FE), // Match dark theme AppBar with base color
         elevation: 2,
         titleTextStyle: GoogleFonts.roboto(
           fontSize: 22.0,
@@ -109,7 +108,7 @@ class VoiceReminderApp extends StatelessWidget {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
-          backgroundColor: Colors.teal[800],
+          backgroundColor: Color(0xFF1577FE), // Update base color to match
           textStyle: GoogleFonts.roboto(
             fontSize: 16.0,
             fontWeight: FontWeight.bold,
@@ -128,7 +127,7 @@ class VoiceReminderApp extends StatelessWidget {
             const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8.0),
-          borderSide: BorderSide(color: Colors.teal[200]!),
+          borderSide: BorderSide(color: Color(0xFF1577FE)!),
         ),
         labelStyle: TextStyle(color: Colors.grey[400]),
       ),
@@ -141,65 +140,11 @@ class VoiceReminderApp extends StatelessWidget {
         ),
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       ),
-      iconTheme: IconThemeData(color: Colors.teal[200]),
+      iconTheme: IconThemeData(color: Color(0xFF1577FE)),
       colorScheme: base.colorScheme.copyWith(
-        primary: Colors.teal[200],
-        secondary: Colors.tealAccent,
+        primary: Color(0xFF1577FE), // Base color consistent for dark mode
+        secondary: Colors.blueAccent,
       ),
     );
-  }
-}
-
-class VerificationChecker extends StatefulWidget {
-  const VerificationChecker({super.key});
-
-  @override
-  _VerificationCheckerState createState() => _VerificationCheckerState();
-}
-
-class _VerificationCheckerState extends State<VerificationChecker> {
-  bool _isLoading = true;
-  bool _hasVerifiedNumber = false;
-  final ApiService apiService = ApiService();
-
-  @override
-  void initState() {
-    super.initState();
-    _checkVerifiedNumbers();
-  }
-
-  Future<void> _checkVerifiedNumbers() async {
-    try {
-      List<VerifiedNumber> verifiedNumbers =
-          await apiService.getVerifiedNumbers();
-      setState(() {
-        _hasVerifiedNumber = verifiedNumbers.isNotEmpty;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching verified numbers: $e')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    // If no verified numbers, show PhoneVerificationScreen
-    if (!_hasVerifiedNumber) {
-      return const PhoneVerificationScreen();
-    }
-
-    // If verified numbers are present, show RemindersScreen
-    return const RemindersScreen();
   }
 }

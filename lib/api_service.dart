@@ -10,7 +10,7 @@ import 'models/verified_number.dart'; // Assuming you have this model
 import 'models/call_log.dart'; // New model for CallLog
 
 class ApiService {
-  final String baseUrl = 'https://a3ef-202-134-148-245.ngrok-free.app';
+  final String baseUrl = 'https://smartcall.docninja.in';
   final _storage = const FlutterSecureStorage(); // Secure storage for device_id
 
   // Singleton pattern (optional)
@@ -331,6 +331,25 @@ class ApiService {
       return callLogs;
     } else {
       throw Exception('Failed to fetch call logs: ${response.body}');
+    }
+  }
+
+  // Add the method to store FCM token
+  Future<void> storeFCMToken(String fcmToken) async {
+    final deviceId = await _getDeviceId();
+    final response = await http.post(
+      Uri.parse('$baseUrl/store_fcm_token'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({
+        'fcm_token': fcmToken,
+        'device_id': deviceId, // Send the device ID as a reference
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to store FCM token: ${response.body}');
     }
   }
 }
