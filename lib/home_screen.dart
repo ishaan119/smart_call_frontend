@@ -1,8 +1,7 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:smart_call_scheduler/reminders_screen.dart';
-import 'home_screen.dart'; // Import the HomeScreen widget
+// Import the HomeScreen widget
 
 void main() {
   runApp(const VoiceReminderApp());

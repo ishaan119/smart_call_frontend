@@ -4,8 +4,7 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 class ContactSelectionDialog extends StatefulWidget {
   final List<Contact> contacts;
 
-  const ContactSelectionDialog({Key? key, required this.contacts})
-      : super(key: key);
+  const ContactSelectionDialog({super.key, required this.contacts});
 
   @override
   _ContactSelectionDialogState createState() => _ContactSelectionDialogState();

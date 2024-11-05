@@ -21,7 +21,7 @@ import 'package:country_picker/country_picker.dart'; // Import the country_picke
 import 'dart:ui' as ui; // Import dart:ui for accessing the device locale
 
 class NewReminderScreen extends StatefulWidget {
-  const NewReminderScreen({Key? key}) : super(key: key);
+  const NewReminderScreen({super.key});
 
   @override
   _NewReminderScreenState createState() => _NewReminderScreenState();
@@ -29,13 +29,11 @@ class NewReminderScreen extends StatefulWidget {
 
 class _NewReminderScreenState extends State<NewReminderScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final TextEditingController _reminderNameController = TextEditingController();
-  final TextEditingController _contactController =
-      TextEditingController(); // Contact selection as text field
+  final TextEditingController _contactController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   DateTime? _selectedDateTime;
   String _frequency = 'one-time';
-  bool _isVoiceMessage = true; // Default to voice message
+  bool _isVoiceMessage = true;
   bool _isRecording = false;
   String? _selectedDayOfWeek;
   bool _isSubmitting = false;
@@ -135,19 +133,24 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
           });
         },
         minTime: DateTime.now(),
-        currentTime: DateTime.now(),
+        currentTime: _selectedDateTime ?? DateTime.now(),
       );
-    } else {
+    } else if (_frequency == 'daily' || _frequency == 'weekly') {
       dtp.DatePicker.showTimePicker(
         context,
         onConfirm: (time) {
           final now = DateTime.now();
           setState(() {
-            _selectedDateTime =
-                DateTime(now.year, now.month, now.day, time.hour, time.minute);
+            _selectedDateTime = DateTime(
+              now.year,
+              now.month,
+              now.day,
+              time.hour,
+              time.minute,
+            );
           });
         },
-        currentTime: DateTime.now(),
+        currentTime: _selectedDateTime ?? DateTime.now(),
       );
     }
   }
@@ -264,7 +267,6 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
 
   bool _isAddReminderButtonEnabled() {
     return _selectedContactNumber != null &&
-        _reminderNameController.text.isNotEmpty &&
         _selectedDateTime != null &&
         (_isVoiceMessage
             ? _recordedFilePath != null
@@ -299,8 +301,9 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
           formattedDateTime,
           _frequency,
           _selectedDayOfWeek,
-          _reminderNameController.text,
+          _selectedContactName!,
           _userTimezone,
+          _selectedContactName!,
         );
       } else {
         await ApiService().scheduleCall(
@@ -309,8 +312,9 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
           formattedDateTime,
           _frequency,
           _selectedDayOfWeek,
-          _reminderNameController.text,
+          _selectedContactName!,
           _userTimezone,
+          _selectedContactName!,
         );
       }
       showCustomSnackBar('Reminder added successfully', color: Colors.green);
@@ -318,7 +322,7 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const RemindersScreen()),
-        (Route<dynamic> route) => false, // This removes all previous routes
+        (Route<dynamic> route) => false,
       );
     } catch (e) {
       setState(() {
@@ -384,11 +388,11 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
           Container(
             width: 80,
             height: 80,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
               color: Color(0xFF0052D4),
             ),
-            child: Icon(Icons.mic,
+            child: const Icon(Icons.mic,
                 size: 36, color: Colors.white), // Custom mic icon here
           ),
         ],
@@ -404,8 +408,8 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
             ? addReminder
             : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Color(0xFF0052D4),
-          padding: EdgeInsets.symmetric(vertical: 16),
+          backgroundColor: const Color(0xFF0052D4),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           shadowColor: Colors.blueAccent.withOpacity(0.4),
@@ -426,8 +430,8 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        SizedBox(height: 8),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           decoration: InputDecoration(
@@ -440,12 +444,12 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
             ),
             suffixIcon: label == "Select contacts"
                 ? IconButton(
-                    icon: Icon(Icons.contact_phone),
+                    icon: const Icon(Icons.contact_phone),
                     onPressed: _openContactPicker,
                   )
-                : null, // Attach contact picker to this field
+                : null,
           ),
-          readOnly: label == "Select contacts", // Make this field non-editable
+          readOnly: label == "Select contacts",
           onTap: label == "Select contacts"
               ? _openContactPicker
               : null, // Open contact picker on tap
@@ -531,13 +535,17 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.access_time, color: Colors.grey),
+                const Icon(Icons.access_time,
+                    color: Color.fromARGB(255, 112, 18, 18)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _selectedDateTime == null
                         ? 'Select Time'
-                        : DateFormat('hh:mm a').format(_selectedDateTime!),
+                        : _frequency == 'one-time'
+                            ? DateFormat('dd MMM yyyy, hh:mm a')
+                                .format(_selectedDateTime!)
+                            : DateFormat('hh:mm a').format(_selectedDateTime!),
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 ),
@@ -600,7 +608,7 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
                   Container(
                     width: 80,
                     height: 80,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       color: Color(0xFF0052D4),
                     ),
@@ -655,40 +663,40 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF9FAFC),
+      backgroundColor: const Color(0xFFF9FAFC),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTextField('Select contacts', _contactController,
-                      'Phone Number'), // TextField for contacts
-                  SizedBox(height: 16),
-                  _buildTextField('Reminder Name', _reminderNameController,
-                      'Enter title here'),
-                  SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(child: _buildFrequencyDropdown()),
-                      SizedBox(width: 16),
-                      Expanded(child: _buildTimePicker()),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  _buildDayOfWeekPicker(),
-                  SizedBox(height: 4),
-                  _buildVoiceMessageCheckbox(),
-                  SizedBox(height: 16),
-                  _isVoiceMessage
-                      ? _buildVoiceMessageRecorder()
-                      : _buildTextMessageField(),
-                  SizedBox(height: 24),
-                  Center(child: _buildAddReminderButton()),
-                ],
+        child: Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildTextField(
+                        'Select contacts', _contactController, 'Phone Number'),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(child: _buildFrequencyDropdown()),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildTimePicker()),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _buildDayOfWeekPicker(),
+                    const SizedBox(height: 16),
+                    _buildVoiceMessageCheckbox(),
+                    const SizedBox(height: 16),
+                    _isVoiceMessage
+                        ? _buildVoiceMessageRecorder()
+                        : _buildTextMessageField(),
+                    const SizedBox(height: 24),
+                    Center(child: _buildAddReminderButton()),
+                  ],
+                ),
               ),
             ),
           ),
@@ -696,23 +704,20 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomNavWithFAB(
-        currentIndex: 0, // Active tab index for "All Reminders"
-
+        currentIndex: 0,
         onTabTapped: (index) {
           if (index == 0) {
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (context) => const RemindersScreen()),
-              (Route<dynamic> route) =>
-                  false, // This removes all previous routes
+              (Route<dynamic> route) => false,
             );
           }
           if (index == 1) {
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(builder: (context) => const CallLogsScreen()),
-              (Route<dynamic> route) =>
-                  false, // This removes all previous routes
+              (Route<dynamic> route) => false,
             );
           }
         },

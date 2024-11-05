@@ -87,6 +87,7 @@ class ApiService {
     String? dayOfWeek,
     String? name,
     String timezone,
+    String contactName,
   ) async {
     final deviceId = await _getDeviceId();
     final response = await http.post(
@@ -102,7 +103,8 @@ class ApiService {
         'day_of_week': dayOfWeek,
         'device_id': deviceId,
         'name': name,
-        'timezone': timezone, // Send the timezone
+        'timezone': timezone,
+        'contact_name': contactName,
       }),
     );
 
@@ -168,6 +170,7 @@ class ApiService {
     String? dayOfWeek,
     String? name,
     String timezone,
+    String contactName,
   ) async {
     final deviceId = await _getDeviceId();
     final response = await http.post(
@@ -183,7 +186,8 @@ class ApiService {
         'day_of_week': dayOfWeek,
         'device_id': deviceId,
         'name': name,
-        'timezone': timezone, // Send the timezone
+        'timezone': timezone,
+        'contact_name': contactName,
       }),
     );
 
@@ -348,7 +352,7 @@ class ApiService {
       }),
     );
 
-    if (response.statusCode != 200) {
+    if (response.statusCode != 200 || response.statusCode != 201) {
       throw Exception('Failed to store FCM token: ${response.body}');
     }
   }

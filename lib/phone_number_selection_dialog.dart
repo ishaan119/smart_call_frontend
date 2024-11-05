@@ -4,8 +4,7 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 class PhoneNumberSelectionDialog extends StatelessWidget {
   final Contact contact;
 
-  const PhoneNumberSelectionDialog({Key? key, required this.contact})
-      : super(key: key);
+  const PhoneNumberSelectionDialog({super.key, required this.contact});
 
   @override
   Widget build(BuildContext context) {

@@ -1,14 +1,21 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'reminders_screen.dart';
+import 'intro_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const VoiceReminderApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter binding
+  await Firebase.initializeApp(); // Initialize Firebase
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  bool introSeen = prefs.getBool('intro_seen') ?? false;
+  runApp(VoiceReminderApp(introSeen: introSeen));
 }
 
 class VoiceReminderApp extends StatelessWidget {
-  const VoiceReminderApp({super.key});
+  final bool introSeen;
+  const VoiceReminderApp({super.key, required this.introSeen});
 
   @override
   Widget build(BuildContext context) {
@@ -18,14 +25,14 @@ class VoiceReminderApp extends StatelessWidget {
       darkTheme: _buildDarkTheme(),
       themeMode:
           ThemeMode.system, // Automatically switch based on system settings
-      home: const RemindersScreen(), // Start directly with RemindersScreen
+      home: introSeen ? const RemindersScreen() : const IntroScreen(),
     );
   }
 
   ThemeData _buildLightTheme() {
     final base = ThemeData.light();
     return base.copyWith(
-      primaryColor: Color(0xFF1577FE), // Updated to match the base color
+      primaryColor: const Color(0xFF1577FE), // Updated to match the base color
       scaffoldBackgroundColor: Colors.grey[100],
       hintColor: Colors.grey,
       textTheme: GoogleFonts.robotoTextTheme(base.textTheme).apply(
@@ -33,7 +40,7 @@ class VoiceReminderApp extends StatelessWidget {
         displayColor: Colors.grey[800],
       ),
       appBarTheme: AppBarTheme(
-        color: Color(0xFF1577FE), // Updated base color here too
+        color: const Color(0xFF1577FE), // Updated base color here too
         elevation: 2,
         titleTextStyle: GoogleFonts.roboto(
           fontSize: 22.0,
@@ -45,7 +52,8 @@ class VoiceReminderApp extends StatelessWidget {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
-          backgroundColor: Color(0xFF1577FE), // Apply the base color to buttons
+          backgroundColor:
+              const Color(0xFF1577FE), // Apply the base color to buttons
           textStyle: GoogleFonts.roboto(
             fontSize: 16.0,
             fontWeight: FontWeight.bold,
@@ -76,9 +84,9 @@ class VoiceReminderApp extends StatelessWidget {
         ),
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       ),
-      iconTheme: IconThemeData(color: Color(0xFF1577FE)), // Icon color
+      iconTheme: const IconThemeData(color: Color(0xFF1577FE)), // Icon color
       colorScheme: base.colorScheme.copyWith(
-        primary: Color(0xFF1577FE), // Primary color scheme updated
+        primary: const Color(0xFF1577FE), // Primary color scheme updated
         secondary: Colors.blueAccent,
       ),
     );
@@ -88,7 +96,7 @@ class VoiceReminderApp extends StatelessWidget {
     final base = ThemeData.dark();
     return base.copyWith(
       primaryColor:
-          Color(0xFF1577FE), // Keep primary color consistent in dark mode
+          const Color(0xFF1577FE), // Keep primary color consistent in dark mode
       scaffoldBackgroundColor: Colors.grey[900],
       hintColor: Colors.grey[400],
       textTheme: GoogleFonts.robotoTextTheme(base.textTheme).apply(
@@ -96,7 +104,8 @@ class VoiceReminderApp extends StatelessWidget {
         displayColor: Colors.grey[100],
       ),
       appBarTheme: AppBarTheme(
-        color: Color(0xFF1577FE), // Match dark theme AppBar with base color
+        color:
+            const Color(0xFF1577FE), // Match dark theme AppBar with base color
         elevation: 2,
         titleTextStyle: GoogleFonts.roboto(
           fontSize: 22.0,
@@ -108,7 +117,8 @@ class VoiceReminderApp extends StatelessWidget {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.white,
-          backgroundColor: Color(0xFF1577FE), // Update base color to match
+          backgroundColor:
+              const Color(0xFF1577FE), // Update base color to match
           textStyle: GoogleFonts.roboto(
             fontSize: 16.0,
             fontWeight: FontWeight.bold,
@@ -127,7 +137,7 @@ class VoiceReminderApp extends StatelessWidget {
             const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8.0),
-          borderSide: BorderSide(color: Color(0xFF1577FE)!),
+          borderSide: const BorderSide(color: Color(0xFF1577FE)),
         ),
         labelStyle: TextStyle(color: Colors.grey[400]),
       ),
@@ -140,9 +150,9 @@ class VoiceReminderApp extends StatelessWidget {
         ),
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       ),
-      iconTheme: IconThemeData(color: Color(0xFF1577FE)),
+      iconTheme: const IconThemeData(color: Color(0xFF1577FE)),
       colorScheme: base.colorScheme.copyWith(
-        primary: Color(0xFF1577FE), // Base color consistent for dark mode
+        primary: const Color(0xFF1577FE), // Base color consistent for dark mode
         secondary: Colors.blueAccent,
       ),
     );

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "346385876383",
+    "project_id": "smartcall-47dbe",
+    "storage_bucket": "smartcall-47dbe.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:346385876383:android:a9d7b61686b7961409a9aa",
+        "android_client_info": {
+          "package_name": "com.docninja.smartcall"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBJ63in3fGI--71BurmOIfdj0KoYc8NO-8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

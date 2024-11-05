@@ -7,7 +7,7 @@ import 'new_reminder_screen.dart'; // Import the NewReminderScreen for navigatio
 import 'package:intl/intl.dart';
 
 class CallLogsScreen extends StatefulWidget {
-  const CallLogsScreen({Key? key}) : super(key: key);
+  const CallLogsScreen({super.key});
 
   @override
   _CallLogsScreenState createState() => _CallLogsScreenState();
