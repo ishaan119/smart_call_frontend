@@ -11,9 +11,11 @@ subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
 subprojects {
-    afterEvaluate { android { compileSdkVersion 34 } }
+    afterEvaluate { android { 
+        compileSdkVersion 34
+        buildToolsVersion "34.0.0"
+    } }
     project.evaluationDependsOn(":app")
-   
 }
 
 tasks.register("clean", Delete) {
@@ -22,11 +24,12 @@ tasks.register("clean", Delete) {
 
 buildscript {
     repositories {
-        google()        // Ensure this is added to point to Google's Maven repository
-        mavenCentral()  // Ensure Maven Central is included
+        google()
+        mavenCentral()
     }
     
     dependencies {
-        classpath 'com.google.gms:google-services:4.3.15'
+        classpath 'com.android.tools.build:gradle:8.3.0'
+        classpath 'com.google.gms:google-services:4.4.0'
     }
 }

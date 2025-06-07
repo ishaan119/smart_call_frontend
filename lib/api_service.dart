@@ -23,38 +23,8 @@ class ApiService {
   ApiService._internal();
 
   // Method to get or generate a device_id
-  Future<String> _getDeviceId() async {
+  Future<String?> _getDeviceId() async {
     String? deviceId = await _storage.read(key: 'device_id');
-    if (deviceId == null) {
-      // Use device_info_plus to get a unique device ID
-      final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-
-      try {
-        if (Platform.isAndroid) {
-          AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
-          // Use the `id` property for Android
-          deviceId =
-              androidInfo.id; // This should always return a value for Android
-        } else if (Platform.isIOS) {
-          IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
-          // Use `identifierForVendor` for iOS devices
-          deviceId = iosInfo
-              .identifierForVendor; // This should always return a value for iOS
-        } else {
-          deviceId = 'unknown'; // Fallback for other platforms
-        }
-
-        // Write the deviceId to secure storage
-        if (deviceId != null && deviceId.isNotEmpty) {
-          await _storage.write(key: 'device_id', value: deviceId);
-        } else {
-          deviceId = 'unknown'; // Handle case where deviceId is still null
-        }
-      } catch (e) {
-        print('Error getting device ID: $e');
-        deviceId = 'unknown'; // Handle errors
-      }
-    }
 
     return deviceId;
   }

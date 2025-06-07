@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_sound/flutter_sound.dart';
+import 'package:record/record.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:smart_call_scheduler/contact_selection_dialog.dart';
@@ -8,8 +9,8 @@ import 'dart:io';
 import 'dart:async';
 import 'api_service.dart';
 import 'reminders_screen.dart';
-import 'call_logs_screen.dart'; // Added for the navigation between screens
-import 'bottom_nav_with_fab.dart'; // Added for the bottom navigation with FAB
+import 'call_logs_screen.dart';
+import 'bottom_nav_with_fab.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart'
@@ -17,8 +18,8 @@ import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart'
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:phone_number/phone_number.dart';
-import 'package:country_picker/country_picker.dart'; // Import the country_picker package
-import 'dart:ui' as ui; // Import dart:ui for accessing the device locale
+import 'package:country_picker/country_picker.dart';
+import 'dart:ui' as ui;
 
 class NewReminderScreen extends StatefulWidget {
   const NewReminderScreen({super.key});
@@ -45,32 +46,43 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
   // Additional variables for timezone and country code
   String _userTimezone = 'UTC';
   String? _isoCountryCode;
-  final PhoneNumberUtil _phoneNumberUtil = PhoneNumberUtil();
 
-  FlutterSoundRecorder? _audioRecorder;
-  FlutterSoundPlayer? _audioPlayer;
+  // Audio recording and playback
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  final AudioPlayer _audioPlayer = AudioPlayer();
   String? _recordedFilePath;
+  bool _isPlaying = false;
 
   @override
   void initState() {
     super.initState();
-    _audioRecorder = FlutterSoundRecorder();
-    _audioPlayer = FlutterSoundPlayer();
-    _initializeRecorder();
+    _initializeAudio();
     _getUserTimezone();
     _getDeviceCountryCode();
   }
 
-  Future<void> _initializeRecorder() async {
+  @override
+  void dispose() {
+    _audioRecorder.dispose();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializeAudio() async {
+    // Request microphone permission
     PermissionStatus status = await Permission.microphone.request();
 
-    if (status.isGranted) {
-      await _audioRecorder!.openRecorder();
-      await _audioPlayer!.openPlayer();
-    } else {
+    if (!status.isGranted) {
       showCustomSnackBar('Microphone permission is required to record audio',
           color: Colors.red);
     }
+
+    // Listen to audio player state changes
+    _audioPlayer.playerStateStream.listen((state) {
+      setState(() {
+        _isPlaying = state.playing;
+      });
+    });
   }
 
   Future<void> _getDeviceCountryCode() async {
@@ -94,32 +106,62 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
   }
 
   Future<void> _startRecording() async {
-    PermissionStatus status = await Permission.microphone.status;
-    if (status.isGranted) {
-      final directory = await getApplicationDocumentsDirectory();
-      String filePath =
-          '${directory.path}/recorded_voice_${const Uuid().v4()}.wav';
-      await _audioRecorder!
-          .startRecorder(toFile: filePath, codec: Codec.pcm16WAV);
-      setState(() {
-        _isRecording = true;
-        _recordedFilePath = filePath;
-      });
-    } else {
-      showCustomSnackBar('Microphone permission denied', color: Colors.red);
+    try {
+      PermissionStatus status = await Permission.microphone.status;
+      if (!status.isGranted) {
+        status = await Permission.microphone.request();
+        if (!status.isGranted) {
+          showCustomSnackBar('Microphone permission denied', color: Colors.red);
+          return;
+        }
+      }
+
+      // Check if recorder is available
+      if (await _audioRecorder.hasPermission()) {
+        final directory = await getApplicationDocumentsDirectory();
+        String filePath =
+            '${directory.path}/recorded_voice_${const Uuid().v4()}.m4a';
+
+        await _audioRecorder.start(
+          const RecordConfig(),
+          path: filePath,
+        );
+
+        setState(() {
+          _isRecording = true;
+          _recordedFilePath = filePath;
+        });
+      } else {
+        showCustomSnackBar('Microphone permission denied', color: Colors.red);
+      }
+    } catch (e) {
+      showCustomSnackBar('Error starting recording: $e', color: Colors.red);
     }
   }
 
   Future<void> _stopRecording() async {
-    await _audioRecorder!.stopRecorder();
-    setState(() {
-      _isRecording = false;
-    });
+    try {
+      await _audioRecorder.stop();
+      setState(() {
+        _isRecording = false;
+      });
+    } catch (e) {
+      showCustomSnackBar('Error stopping recording: $e', color: Colors.red);
+    }
   }
 
   Future<void> _playRecording() async {
-    if (_recordedFilePath != null) {
-      await _audioPlayer!.startPlayer(fromURI: _recordedFilePath);
+    if (_recordedFilePath != null && File(_recordedFilePath!).existsSync()) {
+      try {
+        if (_isPlaying) {
+          await _audioPlayer.stop();
+        } else {
+          await _audioPlayer.setFilePath(_recordedFilePath!);
+          await _audioPlayer.play();
+        }
+      } catch (e) {
+        showCustomSnackBar('Error playing recording: $e', color: Colors.red);
+      }
     }
   }
 
@@ -206,7 +248,7 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
             setState(() {
               _selectedContactName = contactName;
               _selectedContactNumber = formattedNumber;
-              _contactController.text = contactName; // Update text field
+              _contactController.text = contactName;
             });
           } else {
             showCustomSnackBar('Failed to format phone number',
@@ -226,30 +268,39 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
 
   Future<String?> _formatPhoneNumber(String phoneNumber) async {
     try {
+      // Clean the phone number
       String cleanedNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
-      PhoneNumber parsedNumber;
-
+      
+      // If it already has country code, return as is
       if (cleanedNumber.startsWith('+')) {
-        parsedNumber = await _phoneNumberUtil.parse(cleanedNumber);
-      } else {
+        return cleanedNumber;
+      }
+      
+      // Try to parse with phone_number package
+      try {
         String isoCode = _isoCountryCode ?? 'US';
-        try {
-          parsedNumber =
-              await _phoneNumberUtil.parse(cleanedNumber, regionCode: isoCode);
-        } catch (e) {
-          String? selectedIsoCode = await _askUserForCountryCode();
-          if (selectedIsoCode != null) {
-            parsedNumber = await _phoneNumberUtil.parse(cleanedNumber,
-                regionCode: selectedIsoCode);
-          } else {
-            return null;
+        PhoneNumber parsedNumber = await PhoneNumberUtil().parse(cleanedNumber, regionCode: isoCode);
+        return parsedNumber.e164;
+      } catch (e) {
+        // If parsing fails, ask user for country code
+        String? selectedIsoCode = await _askUserForCountryCode();
+        if (selectedIsoCode != null) {
+          try {
+            PhoneNumber parsedNumber = await PhoneNumberUtil().parse(cleanedNumber, regionCode: selectedIsoCode);
+            return parsedNumber.e164;
+          } catch (e) {
+            // If still fails, return with default country code
+            return '+1$cleanedNumber'; // Default to US
           }
         }
+        return null;
       }
-
-      return parsedNumber.e164;
     } catch (e) {
-      return null;
+      // Fallback: return the number with + if it doesn't have it
+      if (!phoneNumber.startsWith('+')) {
+        return '+1$phoneNumber'; // Default to US country code
+      }
+      return phoneNumber;
     }
   }
 
@@ -364,42 +415,6 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
     );
   }
 
-  Widget _buildMicButton() {
-    return GestureDetector(
-      onTap: _isRecording ? _stopRecording : _startRecording,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.blue.withOpacity(0.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blue.withOpacity(0.2),
-                  spreadRadius: 5,
-                  blurRadius: 15,
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFF0052D4),
-            ),
-            child: const Icon(Icons.mic,
-                size: 36, color: Colors.white), // Custom mic icon here
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildAddReminderButton() {
     return SizedBox(
       width: double.infinity,
@@ -450,9 +465,7 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
                 : null,
           ),
           readOnly: label == "Select contacts",
-          onTap: label == "Select contacts"
-              ? _openContactPicker
-              : null, // Open contact picker on tap
+          onTap: label == "Select contacts" ? _openContactPicker : null,
         ),
       ],
     );
@@ -613,7 +626,7 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
                       color: Color(0xFF0052D4),
                     ),
                     child: Icon(_isRecording ? Icons.stop : Icons.mic,
-                        size: 36, color: Colors.white), // Custom mic icon
+                        size: 36, color: Colors.white),
                   ),
                 ],
               ),
@@ -621,7 +634,7 @@ class _NewReminderScreenState extends State<NewReminderScreen> {
             if (_recordedFilePath != null && !_isRecording)
               IconButton(
                 onPressed: _playRecording,
-                icon: const Icon(Icons.play_arrow),
+                icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
                 color: Colors.teal,
                 iconSize: 40.0,
               ),

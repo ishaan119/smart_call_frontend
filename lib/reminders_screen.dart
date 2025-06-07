@@ -92,12 +92,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
       FirebaseMessaging messaging = FirebaseMessaging.instance;
       String? fcmToken = await messaging.getToken();
 
-      if (fcmToken != null) {
-        await ApiService().storeFCMToken(fcmToken);
-      } else {
-        throw Exception('Failed to get FCM token');
-      }
-    } catch (e) {
+      await ApiService().storeFCMToken(fcmToken!);
+        } catch (e) {
       print('Error storing FCM token: $e');
     }
   }

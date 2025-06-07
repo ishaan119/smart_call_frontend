@@ -75,14 +75,14 @@ class VoiceReminderApp extends StatelessWidget {
         ),
         labelStyle: const TextStyle(color: Colors.grey),
       ),
-      cardTheme: CardTheme(
+      cardTheme: const CardThemeData( // FIXED: Changed from CardTheme to CardThemeData
         color: Colors.white,
         shadowColor: Colors.black12,
         elevation: 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.0),
+          borderRadius: BorderRadius.all(Radius.circular(12.0)),
         ),
-        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       ),
       iconTheme: const IconThemeData(color: Color(0xFF1577FE)), // Icon color
       colorScheme: base.colorScheme.copyWith(
@@ -141,12 +141,12 @@ class VoiceReminderApp extends StatelessWidget {
         ),
         labelStyle: TextStyle(color: Colors.grey[400]),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.grey[800],
         shadowColor: Colors.black12,
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.0),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12.0)),
         ),
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       ),
