@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as path;
-import 'package:device_info_plus/device_info_plus.dart';
 import 'models/verified_number.dart'; // Assuming you have this model
 import 'models/call_log.dart'; // New model for CallLog
 

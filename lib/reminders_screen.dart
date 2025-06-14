@@ -3,6 +3,9 @@ import 'bottom_nav_with_fab.dart'; // Import the BottomNavWithFAB widget
 import 'api_service.dart';
 import 'new_reminder_screen.dart';
 import 'call_logs_screen.dart';
+import 'simple_share_screen.dart'; // Add this import
+import 'simple_sharing_service.dart'; // Add this import
+import 'share_button_widget.dart'; // Add this import
 import 'package:audioplayers/audioplayers.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_messaging/firebase_messaging.dart'; // Firebase Messaging for FCM
@@ -92,8 +95,12 @@ class _RemindersScreenState extends State<RemindersScreen> {
       FirebaseMessaging messaging = FirebaseMessaging.instance;
       String? fcmToken = await messaging.getToken();
 
-      await ApiService().storeFCMToken(fcmToken!);
-        } catch (e) {
+      if (fcmToken != null) {
+        await ApiService().storeFCMToken(fcmToken);
+      } else {
+        throw Exception('Failed to get FCM token');
+      }
+    } catch (e) {
       print('Error storing FCM token: $e');
     }
   }
@@ -203,6 +210,15 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     );
                   },
                 ),
+              // Add sharing option in context menu
+              ListTile(
+                leading: const Icon(Icons.share, color: Colors.green),
+                title: const Text('Share SmartCall'),
+                onTap: () {
+                  Navigator.pop(context);
+                  SimpleSharingService.shareApp(context);
+                },
+              ),
             ],
           );
         });
@@ -299,6 +315,9 @@ class _RemindersScreenState extends State<RemindersScreen> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 80.0),
       children: [
+        // Add sharing card at top (shows after user has 3+ reminders)
+        if (activeReminders.length >= 3) ShareButtonWidget.buildShareCard(context),
+        
         if (activeReminders.isNotEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -357,6 +376,25 @@ class _RemindersScreenState extends State<RemindersScreen> {
               style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
             ),
           ),
+          const SizedBox(height: 20),
+          // Add sharing option for empty state
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SimpleShareScreen()),
+              );
+            },
+            icon: const Icon(Icons.share),
+            label: const Text('Share SmartCall'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF1577FE),
+              side: const BorderSide(color: Color(0xFF1577FE)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -372,6 +410,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
         backgroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.black),
         elevation: 1,
+        actions: [
+          // Add simple share button to app bar
+          ShareButtonWidget.buildAppBarShareButton(context),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
